@@ -9,7 +9,20 @@ from scipy import signal
 from scipy.signal import butter, filtfilt, hilbert
 import pickle
 
-#%% Set database
+
+from neurodsp.utils import create_times
+from neurodsp.plts import plot_time_series, plot_power_spectra, plot_spectral_hist, plot_scv
+from neurodsp.plts import plot_scv_rs_lines, plot_scv_rs_matrix
+from neurodsp import spectral
+
+
+#%% METADATA
+
+# Load data and plot
+
+subjects=['al','ca','cc','de','fp','gc','gf','gw',
+          'h0','hh','jc','jm','jp','mv','rh','rr',
+          'ug','wc','wm','zt']
 
 os.chdir(r'C:\Users\jaapv\Desktop\master\VoytekLab')
 
@@ -17,12 +30,20 @@ os.chdir(r'C:\Users\jaapv\Desktop\master\VoytekLab')
 dataset = 'fixation_pwrlaw'
 fs = 1000
 
-#%% subject list
+# subj info
+subj = 16
+ch = 17
 
-subjects=['al','ca','cc','de','fp','gc','gf','gw',
-          'h0','hh','jc','jm','jp','mv','rh','rr',
-          'ug','wc','wm','zt']
+# get the filename
+sub_label = subjects[subj] + '_base'
+filename = os.path.join(os.getcwd(), dataset, 'data', sub_label)
 
+# load data
+dataStruct = sp.io.loadmat(filename)
+data = dataStruct['data']
+locs = dataStruct['locs']
+
+sig = data[:,ch]
 
 #%% Filtering and circle correlation functions
 
@@ -127,9 +148,14 @@ PAC_pres = pickle.load(open("PAC_presence", "rb"))
     
 #%% Plot some data
 
+# sub data
+subj = 16
+ch = 17
 
-subj = 8
-ch = 8
+# time plot in seconds
+plt_time = [60, 62]
+
+
 
 # get the filename
 sub_label = subjects[subj] + '_base'
@@ -139,7 +165,6 @@ filename = os.path.join(os.getcwd(), dataset, 'data', sub_label)
 dataStruct = sp.io.loadmat(filename)
 data = dataStruct['data']
 locs = dataStruct['locs']
-
 
 #calculating phase of theta
 phase_data = butter_bandpass_filter(data[:,ch], phase_providing_band[0], phase_providing_band[1], round(float(fs)));
@@ -151,27 +176,76 @@ amp_data = butter_bandpass_filter(data[:,ch], amplitude_providing_band[0], ampli
 amp_data_hilbert = hilbert(amp_data);
 amp_data_abs = abs(amp_data_hilbert);
 
-
 PAC_values = circCorr(phase_data_angle, amp_data_abs)
 
 
-signal_both_bands = phase_data_hilbert + amp_data_hilbert
-
-
+# one way to visualize it using plt.plot
 plt.figure(figsize = (20,8));
-plt.plot((signal_both_bands[1:int(fs)]),label= 'Combined')
-plt.plot((amp_data_hilbert[1:int(fs)]),label= 'High Gamma')
-plt.plot((phase_data_hilbert[1:int(fs)]),label= 'Theta')
+plt.plot((data[plt_time[0]*fs:plt_time[1]*fs,ch]),label= 'Raw Signal')
+plt.plot((amp_data_hilbert[plt_time[0]*fs:plt_time[1]*fs]),label= 'High Gamma [80-125 Hz]')
+plt.plot((phase_data_hilbert[plt_time[0]*fs:plt_time[1]*fs]),label= 'Theta [4-8 Hz]')
+
+plt.xlabel('Two Seconds of Theta Phase, High Gamma Amplitude, and raw signal')
+plt.legend(loc='center left', bbox_to_anchor=(1, 0.5))
+
+# other way using neurodsp.plts
+times = create_times(len(sig)/fs, fs)
+times = times[0:len(times)-1]
+plot_time_series(times, [sig, amp_data_hilbert, phase_data_hilbert], ['Raw', 'Ampls', 'Phase'], xlim=plt_time)
 
 
 
-#%% 
+#%% SPECTRAL POWER 
 
-freqs, psd = signal.welch(data[:,ch])
+freq_mean, psd_mean = spectral.compute_spectrum(sig, fs, method='welch', avg_type='mean', nperseg=fs*2)
 
-plt.figure(figsize=(5, 4))
-plt.semilogx(freqs, psd)
-plt.title('PSD: power spectral density')
-plt.xlabel('Frequency')
-plt.ylabel('Power')
-plt.tight_layout()
+# Median of spectrogram ("median Welch")
+freq_med, psd_med = spectral.compute_spectrum(sig, fs, method='welch', avg_type='median', nperseg=fs*2)
+
+# Median filtered spectrum
+freq_mf, psd_mf = spectral.compute_spectrum(sig, fs, method='medfilt')
+
+
+# Plot the power spectra
+plot_power_spectra([freq_mean[:200], freq_med[:200], freq_mf[100:10000]],
+                   [psd_mean[:200], psd_med[:200], psd_mf[100:10000]],
+                   ['Welch', 'Median Welch', 'Median Filter FFT'])
+
+
+#%% SPECTRAL HISTOGRAM
+
+freqs, bins, spect_hist = spectral.compute_spectral_hist(sig, fs, nbins=50, f_range=(0, 80),
+                                                         cut_pct=(0.1, 99.9))
+
+# Calculate a power spectrum, with median Welch
+freq_med, psd_med = spectral.compute_spectrum(sig, fs, method='welch',
+                                              avg_type='median', nperseg=fs*2)
+
+# Plot the spectral histogram
+plot_spectral_hist(freqs, bins, spect_hist, freq_med, psd_med)
+
+
+#%% SPECTRAL COEFFICIENT OF VARIATION
+
+freqs, scv = spectral.compute_scv(sig, fs, nperseg=int(fs), noverlap=0)
+
+# Plot the SCV
+plot_scv(freqs, scv)
+
+
+# Bootstrapped
+
+# Calculate SCV with the resampling method
+freqs, t_inds, scv_rs = spectral.compute_scv_rs(sig, fs, nperseg=fs, method='bootstrap',
+                                                rs_params=(20, 200))
+# Plot the SCV, from the resampling method
+plot_scv_rs_lines(freqs, scv_rs)
+
+# Matrix
+
+# Calculate SCV with the resampling method
+freqs, t_inds, scv_rs = spectral.compute_scv_rs(sig, fs, method='rolling', rs_params=(10, 2))
+
+# Plot the SCV, from the resampling method
+plot_scv_rs_matrix(freqs, t_inds, scv_rs)
+

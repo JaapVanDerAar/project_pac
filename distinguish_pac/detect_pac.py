@@ -12,8 +12,12 @@ import pickle
 
 from neurodsp.utils import create_times
 from neurodsp.plts import plot_time_series, plot_power_spectra, plot_spectral_hist, plot_scv
-from neurodsp.plts import plot_scv_rs_lines, plot_scv_rs_matrix
+from neurodsp.plts import plot_scv_rs_lines, plot_scv_rs_matrix 
+from neurodsp.plts.time_series import plot_instantaneous_measure
+from neurodsp.timefrequency import amp_by_time, freq_by_time, phase_by_time
 from neurodsp import spectral
+import neurodsp.timefrequency as tf
+
 
 
 #%% METADATA
@@ -106,17 +110,17 @@ for subj in range(len(subjects)):
         
     
         #calculating phase of theta
-        phase_data = butter_bandpass_filter(data[:,ch], phase_providing_band[0], phase_providing_band[1], round(float(fs)));
+        phase_data = butter_bandpass_filter(data[50000:70000,ch], phase_providing_band[0], phase_providing_band[1], round(float(fs)));
         phase_data_hilbert = hilbert(phase_data);
         phase_data_angle = np.angle(phase_data_hilbert);
         
         #calculating amplitude envelope of high gamma
-        amp_data = butter_bandpass_filter(data[:,ch], amplitude_providing_band[0], amplitude_providing_band[1], round(float(fs)));
+        amp_data = butter_bandpass_filter(data[50000:70000,ch], amplitude_providing_band[0], amplitude_providing_band[1], round(float(fs)));
         amp_data_hilbert = hilbert(amp_data);
         amp_data_abs = abs(amp_data_hilbert);
 
 
-        PAC_values = circCorr(phase_data_angle, amp_data_abs)
+        PAC_values = circCorr(phase_data_angle[10000:12000], amp_data_abs[10000:12000])
         
         if PAC_values[1] <= 0.05:
             
@@ -128,22 +132,21 @@ for subj in range(len(subjects)):
             
             
     print('another one is done =), this was subj', subj)
-            
-            
-    np.save(PAC_presence, PAC_presence)      
-            
-     
-#%% pickle dump and load 
-       
-# dump information to that file
-pickle.dump(PAC_presence, open('PAC_presence', 'wb'))
+ 
 
-PAC_pres = pickle.load(open("PAC_presence", "rb"))
+#%% Save and Load            
+#            
+#np.save('PAC_presence_2s6062.npy', PAC_presence)   
+#
+#PAC_pres = np.load('PAC_presence.npy')         
+#     
         
-        
-#%%   
+#%% Amount of channels in which PAC is detected    
 
-(PAC_presence == 1).sum()
+(PAC_presence == 1).sum() / ((PAC_presence == 1).sum() + (PAC_presence == 0).sum()) * 100
+
+
+
     
     
 #%% Plot some data
@@ -154,7 +157,6 @@ ch = 17
 
 # time plot in seconds
 plt_time = [60, 62]
-
 
 
 # get the filename
@@ -249,3 +251,36 @@ freqs, t_inds, scv_rs = spectral.compute_scv_rs(sig, fs, method='rolling', rs_pa
 # Plot the SCV, from the resampling method
 plot_scv_rs_matrix(freqs, t_inds, scv_rs)
 
+#%% TIME-FREQUENCY ANALYSIS
+
+# Set the frequency range to be used
+f_range = (13, 30)
+
+
+#%% INSTANTANEOUS PHASE
+
+# Compute instaneous phase from a signal
+pha = phase_by_time(sig, fs, f_range)
+
+
+# Plot example signal
+_, axs = plt.subplots(2, 1, figsize=(15, 6))
+plot_time_series(times, sig, xlim=plt_time, xlabel=None, ax=axs[0])
+plot_instantaneous_measure(times, pha, xlim=plt_time, ax=axs[1])
+
+
+#%% INSTATANEOUS AMPLITUDE
+
+# Compute instaneous amplitude from a signal
+amp = amp_by_time(sig, fs, f_range)
+
+# Plot example signal
+_, axs = plt.subplots(2, 1, figsize=(15, 6))
+plot_instantaneous_measure(times, [sig, amp], 'amplitude',
+                           labels=['Raw Voltage', 'Amplitude'],
+                           xlim=[4, 5], xlabel=None, ax=axs[0])
+plot_instantaneous_measure(times, [sig_filt_true, amp], 'amplitude',
+                           labels=['Raw Voltage', 'Amplitude'], colors=['b', 'r'],
+                           xlim=[4, 5], ax=axs[1])
+
+#%% INSTANTANEUOUS FREQUENCY

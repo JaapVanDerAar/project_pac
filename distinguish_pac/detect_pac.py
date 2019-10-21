@@ -5,18 +5,16 @@ import scipy.io
 import scipy as sp
 import numpy as np
 import matplotlib.pyplot as plt
-from scipy import signal
 from scipy.signal import butter, filtfilt, hilbert
-import pickle
 
 
 from neurodsp.utils import create_times
 from neurodsp.plts import plot_time_series, plot_power_spectra, plot_spectral_hist, plot_scv
 from neurodsp.plts import plot_scv_rs_lines, plot_scv_rs_matrix 
 from neurodsp.plts.time_series import plot_instantaneous_measure
-from neurodsp.timefrequency import amp_by_time, freq_by_time, phase_by_time
+from neurodsp.timefrequency import amp_by_time, phase_by_time
 from neurodsp import spectral
-import neurodsp.timefrequency as tf
+
 
 
 

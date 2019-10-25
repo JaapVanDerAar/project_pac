@@ -3,6 +3,7 @@
 # import standard libraries
 import os
 import numpy as np
+import matplotlib.pyplot as plt
 
 
 
@@ -42,6 +43,7 @@ datastruct, elec_locs = load_data.load_data_and_locs(dat_name, subjects, fs, tim
 #%% Save datastructure
 
 np.save('datastruct', datastruct)
+np.save('elec_locs', elec_locs)
 
 #%% Input parameters for bands
 
@@ -83,13 +85,14 @@ np.save('pac_idx', pac_idx)
 
 subj = 0 
 ch = 0
+
 fs = 1000
 phase_providing_band = [4,8]; #4-8 Hz band
 amplitude_providing_band = [80, 125]; #80-125 Hz band
 
 pac_plt.plot_signal(datastruct, phase_providing_band, amplitude_providing_band, subj, ch, fs)
 
-
+            
 #%% PAC channels plot
 
 fs = 1000
@@ -102,4 +105,74 @@ for ii in range(len(pac_idx[0])):
     ch = pac_idx[1][ii]
     
     pac_plt.plot_signal(datastruct, phase_providing_band, amplitude_providing_band, subj, ch, fs)
+    
+#%% List of stuff to open
+
+# standard modules
+import os
+import numpy as np
+
+# change dir
+os.chdir(r'C:\Users\jaapv\Desktop\master\VoytekLab\Code\distinguish_pac')
+
+# import self-defined modules
+import module_load_data as load_data
+import module_detect_pac as detect_pac
+import module_pac_plots as pac_plt
+   
+# change dir 
+os.chdir(r'C:\Users\jaapv\Desktop\master\VoytekLab')
+
+# data
+datastruct = np.load('datastruct.npy', allow_pickle=True)
+elec_locs = np.load('elec_locs.npy', allow_pickle=True)
+
+subjects = ['al','ca','cc','de','fp','gc','gf','gw',
+          'h0','hh','jc','jm','jp','mv','rh','rr',
+          'ug','wc','wm','zt']
+
+# resampled rho values
+resamp_rho = np.load('resamp_rho.npy', allow_pickle=True) 
+
+# resampled statistics    
+pac_true_zvals = np.load('pac_true_zvals.npy')
+pac_true_pvals = np.load('pac_true_pvals.npy')
+pac_true_presence = np.load('pac_true_presence.npy')
+pac_idx = np.load('pac_idx.npy')
+
+# parameters
+fs = 1000
+phase_providing_band = [4,8]; #4-8 Hz band
+amplitude_providing_band = [80, 125]; #80-125 Hz band
+
+#%% Loop over all sign. PAC channels to assess them 
+
+assess = []
+
+for ii in range(len(pac_idx[0])):
+    
+    subj = pac_idx[0][ii]
+    ch = pac_idx[1][ii]
+    
+    fig = plt.figure(ii)
+    pac_plt.plot_signal(datastruct, phase_providing_band, amplitude_providing_band, subj, ch, fs)
+    
+    plt.draw()
+    plt.pause(1) 
+  
+    while True:
+        
+        val = input("""Enter a number:
+            1 = 'True' PAC
+            2 = Sharp waveforms
+            3 = Artifacts
+            4 = Other 
+            """)
+            
+        if  val == "1" or val == "2" or val == "3" or val == "4":
+            
+             assess.append(val)
+             plt.close(fig)
+             break        
+    
 

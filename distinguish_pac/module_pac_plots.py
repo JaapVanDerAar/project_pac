@@ -3,7 +3,7 @@ from scipy.signal import hilbert
 import numpy as np
 import matplotlib.pyplot as plt
 
-#%%
+#%% Plot 1 second of signal, including phase and amplitude bands
 
 def plot_signal(datastruct, phase_providing_band, amplitude_providing_band, subj, ch, fs): 
     
@@ -37,4 +37,4 @@ def plot_signal(datastruct, phase_providing_band, amplitude_providing_band, subj
     plt.xlabel('subj: % 2d, ch: % 2d, Two Seconds of Theta Phase, High Gamma Amplitude, and raw signal' %(subj,ch))
     plt.legend(loc='center left', bbox_to_anchor=(1, 0.5))
                
-    
+   

@@ -3,6 +3,8 @@ import module_pac_functions as pacf
 from scipy.signal import hilbert
 import numpy as np
 import scipy.io
+from fooof import FOOOF
+from neurodsp import spectral
 
 
 #%%  Calculate PAC
@@ -326,3 +328,72 @@ def resampled_pac_varphase(datastruct, amplitude_providing_band, fs, num_resampl
     
     return resampled_rhovalues_subjlevel, resampled_pvalues_subjlevel
         
+#%% Using FOOOF, select the biggest peak in the periodic power spectrum model
+    
+
+def fooof_highest_peak(datastruct, fs):
+    """
+    This function is build on FOOOF and neuroDSP. It fits a model to the power 
+    frequency spectrum, look for the biggest peak (in amplitude) and extracts 
+    the characteristics of the peak
+    
+    Inputs: 
+        datastruct and fs
+        
+    Outputs:
+        Arrays of biggest peak characterics [CF, Ampl, BW]
+    
+    """
+    # initialze storing array
+    psd_peaks = []
+    
+    for subj in range(len(datastruct, fs)):
+        
+        # initialize channel specific storage array
+        psd_peak_chs = []
+        
+        for ch in range(len(datastruct[subj])):
+            
+            # get signal
+            sig = datastruct[subj][ch]
+            
+            # compute frequency spectrum
+            freq_mean, psd_mean = spectral.compute_spectrum(sig, fs, method='welch', avg_type='mean', nperseg=fs*2)
+         
+            # Set the frequency range upon which to fit FOOOF
+            freq_range = [4, 55]
+            bw_lims = [2, 8]
+            max_n_peaks = 4
+            
+            if sum(psd_mean) == 0: 
+                
+                peak_params = np.empty([0, 3])
+                
+                psd_peak_chs.append(peak_params)
+                
+            else:
+                
+                # Initialize FOOOF model
+                fm = FOOOF(peak_width_limits=bw_lims, background_mode='knee', max_n_peaks=max_n_peaks)
+                
+                # fit model
+                fm.fit(freq_mean, psd_mean, freq_range) 
+                
+                # Central frequency, Amplitude, Bandwidth
+                peak_params = fm.peak_params_
+                
+                if len(peak_params) > 0: 
+                    
+                    # find which peak has the biggest amplitude
+                    max_ampl_idx = np.argmax(peak_params[:,1])
+                        
+                    # define biggest peak in power spectrum and add to channel array
+                    psd_peak_chs.append(peak_params[max_ampl_idx])
+                
+                elif len(peak_params) == 0:
+                    
+                    psd_peak_chs.append(peak_params)
+                    
+        psd_peaks.append(psd_peak_chs)
+            
+    return psd_peaks

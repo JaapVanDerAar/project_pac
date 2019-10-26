@@ -1,19 +1,7 @@
 import scipy as sp
 import numpy as np
 from scipy.signal import butter, filtfilt
-
-def remove_60hz(datastruct, ):
-    """
-    This function removes the 60hz noise from data
-    
-    Inputs: 
-        Datastruct, 
-    
-    
-    """
-    
-    
-    
+        
     
 def butter_bandpass(lowcut, highcut, fs, order=4):
     """lowcut is the lower bound of the frequency that we want to isolate

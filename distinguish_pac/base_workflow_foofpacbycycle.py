@@ -21,7 +21,7 @@ os.chdir(r'C:\Users\jaapv\Desktop\master\VoytekLab\Code\distinguish_pac')
 
 import module_load_data as load_data
 #import module_pac_functions as pacf
-#import module_detect_pac as detect_pac
+import module_detect_pac as detect_pac
 #import module_pac_plots as pac_plt
 
 #%% Meta data
@@ -45,65 +45,92 @@ timewindow = 110000/fs # 110800 is the length of shortest recording
 datastruct, elec_locs = load_data.load_data_timewindow(dat_name, subjects, fs, timewindow)
 
 
-#%% Filter out 60 Hz and cut off beginning and end of data GIVES PROBLEMS
-
-## Filter frequency range
-#f_range = (58, 62)
-#
-#for subj in range(len(datastruct)):
-#    for ch in range(len(datastruct[subj])):
-#        
-#        datastruct[subj][ch] = filt.filter_signal(datastruct[subj][ch], fs, 'bandstop', f_range, n_seconds=0.5)
-#        
-#        # cut off beginning and end of data (1s) which are nan due to filter
-#        datastruct[subj][ch] = datastruct[subj][ch][1000:len(datastruct[subj][ch])-1000]
 #%% Save structure
 
-np.save('datastruct_fpb', datastruct)
+# np.save('datastruct_fpb', datastruct)
 
-#%% Calculate PSD Welch method
-
-subj = 0
-ch = 0 
-
-sig = datastruct[subj][ch]
-
-# Plot the loaded signal
-times = create_times(len(sig)/fs, fs)
-plot_time_series(times, sig, xlim=[0, 3])
-
-freq_mean, psd_mean = spectral.compute_spectrum(sig, fs, method='welch', avg_type='mean', nperseg=fs*2)
-
-plot_power_spectra(freq_mean[:200], psd_mean[:200], 'Welch')
-
-# Set the frequency range upon which to fit FOOOF
-freq_range = [2, 50]
-bw_lims = [2, 8]
-max_n_peaks = 4
+#%% Calculate largest peak in PSD using FOOF
 
 
-# Initialize FOOOF model
-fm = FOOOF(peak_width_limits=bw_lims, background_mode='knee', max_n_peaks=max_n_peaks)
+# initialze storing array
+psd_peaks = []
 
-fm.fit(freq_mean, psd_mean, freq_range) 
+for subj in range(len(datastruct)):
+    
+    # initialize channel specific storage array
+    psd_peak_chs = []
+    
+    for ch in range(len(datastruct[subj])):
+        
+        # get signal
+        sig = datastruct[subj][ch]
+        
+        # compute frequency spectrum
+        freq_mean, psd_mean = spectral.compute_spectrum(sig, fs, method='welch', avg_type='mean', nperseg=fs*2)
+     
+        # Set the frequency range upon which to fit FOOOF
+        freq_range = [4, 55]
+        bw_lims = [2, 8]
+        max_n_peaks = 4
+        
+        if sum(psd_mean) == 0: 
+            
+            peak_params = np.empty([0, 3])
+            
+            psd_peak_chs.append(peak_params)
+            
+        else:
+            
+            # Initialize FOOOF model
+            fm = FOOOF(peak_width_limits=bw_lims, background_mode='knee', max_n_peaks=max_n_peaks)
+            
+            fm.fit(freq_mean, psd_mean, freq_range) 
+            
+            # offset, knee, slope
+            background_params = fm.background_params_
+            
+            # Central frequency, Amplitude, Bandwidth
+            peak_params = fm.peak_params_
+            
+            if len(peak_params) > 0: 
+                
+                # find which peak has the biggest amplitude
+                max_ampl_idx = np.argmax(peak_params[:,1])
+                    
+                # define biggest peak in power spectrum and add to channel array
+                psd_peak_chs.append(peak_params[max_ampl_idx])
+            
+            elif len(peak_params) == 0:
+                
+                psd_peak_chs.append(peak_params)
+                
+    psd_peaks.append(psd_peak_chs)
+        
 
-# Run FOOOF model - calculates model, plots, and prints results
-fm.report(freq_mean, psd_mean, freq_range)
+#%% So now we have the peaks. Use those as input phase frequency for detecting PAC
+    
+amplitude_providing_band = [80, 125]; #80-125 Hz band
 
-# offset, knee, slope
-background_params = fm.background_params_
+pac_presence, pac_pvals, pac_rhos = detect_pac.cal_pac_values_varphase(datastruct, amplitude_providing_band, fs, psd_peaks)
 
-# Central frequency, Amplitude, Bandwidth
-peak_params = fm.peak_params_
+#%% How many channels have PAC when channels are NOT resampled?
 
-# find which peak has the biggest amplitude
-max_ampl_idx = np.argmax(peak_params[:,1])
-
-# define biggest peak in power spectrum
-psd_peak = peak_params[max_ampl_idx]
-
-
-#%% 
+array_size = np.size(pac_presence)
+nan_count = np.isnan(pac_presence).sum().sum()
+pp = (pac_presence == 1).sum().sum()
+percentage_pac = pp / (array_size - nan_count) * 100
+print('in ', percentage_pac, 'channels is PAC (unresampled)')
 
 
 
+#%% Run resampling with variable phase and for full time frame of data
+
+num_resamples = 1000
+
+resamp_rho_varphase = detect_pac.resampled_pac_varphase(datastruct, amplitude_providing_band, fs, num_resamples, psd_peaks)
+
+#%% Save resampled data
+
+os.chdir(r'C:\Users\jaapv\Desktop\master\VoytekLab')
+
+np.save('resamp_rho_varphase', resamp_rho_varphase)

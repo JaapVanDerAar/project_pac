@@ -1,10 +1,13 @@
 #%% Loading necessary data for next steps
 
+import os 
+import numpy as np
+
 # change dir 
 os.chdir(r'C:\Users\jaapv\Desktop\master\VoytekLab')
 
 # data
-datastruct = np.load('datastruct.npy', allow_pickle=True)
+datastruct = np.load('datastruct_fpb.npy', allow_pickle=True)
 elec_locs = np.load('elec_locs.npy', allow_pickle=True)
 
 subjects = ['al','ca','cc','de','fp','gc','gf','gw',
@@ -28,7 +31,11 @@ psd_peaks = np.load('psd_peaks.npy', allow_pickle=True)
 
 from bycycle.filt import lowpass_filter
 from bycycle.features import compute_features
-from matplotlib.pyplot import plt
+import matplotlib.pyplot as plt
+import module_pac_plots as pac_plt
+import module_pac_functions as pacf
+from scipy.signal import hilbert
+
 #%%
 signal = datastruct[0][10]
 
@@ -44,7 +51,7 @@ df = compute_features(signal, fs, f_range)
 #%% 
 
 # channel with PAC to plot
-ii = 3
+ii = 0
 
 # subj & ch
 subj = pac_idx[0][ii]
@@ -59,7 +66,6 @@ fs = 1000
 phase_providing_band = [lower_phase, upper_phase]; #4-8 Hz band
 amplitude_providing_band = [80, 125]; #80-125 Hz band
 
-#%% 
 pac_plt.plot_signal(datastruct, phase_providing_band, amplitude_providing_band, subj, ch, fs)
 
 
@@ -134,7 +140,14 @@ np.save('mean_time_rdsym', mean_time_rdsym)
 np.save('median_time_rdsym', median_time_rdsym)
 np.save('mean_time_ptsym', mean_time_ptsym)
 np.save('median_time_ptsym', median_time_ptsym)
-    
+
+
+#%% Or load
+
+mean_time_rdsym = np.load('mean_time_rdsym.npy')   
+median_time_rdsym = np.load('median_time_rdsym.npy')   
+mean_time_ptsym = np.load('mean_time_ptsym.npy')   
+median_time_ptsym = np.load('median_time_ptsym.npy')   
     
 #%%
 plt.scatter(median_time_ptsym, median_time_rdsym)
@@ -145,7 +158,7 @@ plt.ylim([.49,.525])
 
 #%% Get cycle specific data per channel
 
-ii = 3
+ii = 5
 
 
  # get subj & ch
@@ -160,21 +173,26 @@ fs = 1000
 f_range = [lower_phase, upper_phase]
 phase_providing_band = f_range
 f_lowpass = 55
-N_seconds = len(datastruct[0][10]) / fs - 2
+N_seconds = 2 #???????????????
 
-signal = lowpass_filter(signal, fs, f_lowpass, N_seconds=N_seconds, remove_edge_artifacts=False)
+
+signal = lowpass_filter(datastruct[subj][ch], fs, f_lowpass, remove_edge_artifacts=False)
 
 df = compute_features(signal, fs, f_range)
 
 
 plt.hist(df.time_rdsym, bins=20)
+plt.title('Rise-Decay Sym')
 plt.show()
 
 
 plt.hist(df.time_ptsym, bins=20)
+plt.title('Peak-Trough Sym')
 plt.show()
 
 plt.scatter(df.time_ptsym, df.time_rdsym)
+plt.xlabel('Peak-Trough Sym')
+plt.ylabel('Rise-Decay Sym')
 
 plt_time = [0, 2]   
 

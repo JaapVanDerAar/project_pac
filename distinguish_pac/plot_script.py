@@ -12,3 +12,8 @@ from neurodsp.plts.time_series import plot_time_series
 
 times = create_times(len(sig)/fs, fs)
 plot_time_series(times, sig, xlim=[0, 3])
+
+#%%
+with pd.option_context('display.max_rows', 20
+                       , 'display.max_columns', None):    
+    print(df)

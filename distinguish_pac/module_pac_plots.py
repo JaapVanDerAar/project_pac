@@ -1,6 +1,5 @@
 import module_pac_functions as pacf
 from scipy.signal import hilbert
-import numpy as np
 import matplotlib.pyplot as plt
 
 #%% Plot 1 second of signal, including phase and amplitude bands
@@ -32,9 +31,9 @@ def plot_signal(datastruct, phase_providing_band, amplitude_providing_band, subj
     plt.figure(figsize = (20,8));
     plt.plot((datastruct[subj][ch][plt_time[0]*fs:plt_time[1]*fs]),label= 'Raw Signal')
     plt.plot((amp_data_hilbert[plt_time[0]*fs:plt_time[1]*fs]),label= 'High Gamma [80-125 Hz]')
-    plt.plot((phase_data_hilbert[plt_time[0]*fs:plt_time[1]*fs]),label= 'Theta [4-8 Hz]')
+    plt.plot((phase_data_hilbert[plt_time[0]*fs:plt_time[1]*fs]),label= 'Phase [{0:.2f} - {1:.2f} Hz]'.format(phase_providing_band[0], phase_providing_band[1]))
     
-    plt.xlabel('subj: % 2d, ch: % 2d, Two Seconds of Theta Phase, High Gamma Amplitude, and raw signal' %(subj,ch))
+    plt.xlabel('subj: {0:.0f}, ch {1:.0f},  Two Seconds of Theta Phase, High Gamma Amplitude, and Raw Signal '.format(subj,ch))
     plt.legend(loc='center left', bbox_to_anchor=(1, 0.5))
                
-   
+    

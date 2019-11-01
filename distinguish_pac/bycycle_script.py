@@ -152,13 +152,16 @@ median_time_ptsym = np.load('median_time_ptsym.npy')
 #%%
 plt.scatter(median_time_ptsym, median_time_rdsym)
 
-
 plt.scatter(mean_time_ptsym, mean_time_rdsym)
 plt.ylim([.49,.525])
+plt.xlabel('Peak-Through Sym')
+plt.ylabel('Rise-Decay Sym')
+
+
 
 #%% Get cycle specific data per channel
 
-ii = 5
+ii = 10
 
 
  # get subj & ch
@@ -173,7 +176,7 @@ fs = 1000
 f_range = [lower_phase, upper_phase]
 phase_providing_band = f_range
 f_lowpass = 55
-N_seconds = 2 #???????????????
+N_seconds = 2 #??????????????? length signal / fs - 2 
 
 
 signal = lowpass_filter(datastruct[subj][ch], fs, f_lowpass, remove_edge_artifacts=False)
@@ -193,8 +196,9 @@ plt.show()
 plt.scatter(df.time_ptsym, df.time_rdsym)
 plt.xlabel('Peak-Trough Sym')
 plt.ylabel('Rise-Decay Sym')
+plt.title('Two symmetry measures per cycle for a channel')
 
-plt_time = [0, 2]   
+plt_time = [0, 5]   
 
 #calculating phase of theta
 phase_data = pacf.butter_bandpass_filter(datastruct[subj][ch], phase_providing_band[0], phase_providing_band[1], round(float(fs)));
@@ -216,5 +220,64 @@ plt.scatter([df.loc[0:30].sample_peak], [df.loc[0:30].volt_peak])
 plt.xlabel('subj: {0:.0f}, ch {1:.0f},  Two Seconds of Theta Phase, High Gamma Amplitude, and Raw Signal '.format(subj,ch))
 plt.legend(loc='center left', bbox_to_anchor=(1, 0.5))
        
+#%% Overview of all CFs
 
+cf = []
+bw = []
+
+for subj in range(len(psd_peaks)):
+    for ch in range(len(psd_peaks[subj])):
+        if len(psd_peaks[subj][ch]) > 0:
+            cf.append(psd_peaks[subj][ch][0])
+            bw.append(psd_peaks[subj][ch][1])
+        
+plt.hist(cf, bins=60)
+plt.title('distribution of CFs')
+plt.show()
+plt.hist(bw, bins=20)
+plt.title('distribution of BWs')
+ 
+plt.figure(figsize=(10,10))
+plt.scatter(bw,cf)
+       
+#%% Overview of CFs of PAC channels
+
+cf = [] 
+bw = []
+
+for ii in range(len(pac_idx[0])):
+    # get subj & ch
+    subj = pac_idx[0][ii]
+    ch = pac_idx[1][ii]
+    if len(psd_peaks[subj][ch]) > 0:
+        cf.append(psd_peaks[subj][ch][0])
+        bw.append(psd_peaks[subj][ch][1])
+    
+plt.hist(cf, bins=60)
+plt.show()
+plt.hist(bw, bins=20)
+
+plt.figure(figsize=(10,10))
+plt.scatter(bw,cf)
+
+
+# clean data
+# burst detection 
+# create preprocessing pipeline up till the point where the features are extracted. 
+
+### Later step: look per cycle and to the direction (pi) of the phase. These change with
+### the symmetry of the waveform. Consistent shapes of waveforms might results in PAC. 
+### So the consistency of the symmetry should within a channel should be a feature
+
+### FEATURES
+### - BW
+### - CF
+### - AM/power
+### - PAC value/ Rho
+### - RD Symmetry
+### - PT Symmetry
+### - RD Symmetry STD
+### - PT Symmetry STD
+
+### - periodic and aperiodic measures? 
 

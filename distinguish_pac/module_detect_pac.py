@@ -162,7 +162,7 @@ def true_pac_values(pac_rhos, resamp_rho):
         # for every channel
         for ch in range(len(resamp_rho[subj])):
             
-            true_z = (pac_rhos[ch][subj] - np.mean(resamp_rho[subj][ch])) / np.std(resamp_rho[subj][ch])
+            true_z = (pac_rhos[subj][ch] - np.mean(resamp_rho[subj][ch])) / np.std(resamp_rho[subj][ch])
             p_value = scipy.stats.norm.sf(abs(true_z))
                 
             pac_true_pvals[ch][subj] = p_value
@@ -347,7 +347,7 @@ def fooof_highest_peak(datastruct, fs):
     # initialze storing array
     psd_peaks = []
     
-    for subj in range(len(datastruct, fs)):
+    for subj in range(len(datastruct)):
         
         # initialize channel specific storage array
         psd_peak_chs = []

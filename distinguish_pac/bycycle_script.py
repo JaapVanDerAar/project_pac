@@ -36,57 +36,10 @@ import module_pac_plots as pac_plt
 import module_pac_functions as pacf
 from scipy.signal import hilbert
 
-#%%
-signal = datastruct[0][10]
-
-fs = 1000
-f_lowpass = 100
-N_seconds = len(datastruct[0][10]) / fs - 2
-
-signal = lowpass_filter(signal, fs, f_lowpass, N_seconds=N_seconds, remove_edge_artifacts=False)
-#%%
-f_range = (11, 18)
-df = compute_features(signal, fs, f_range)
-
-#%% 
-
-# channel with PAC to plot
-ii = 0
-
-# subj & ch
-subj = pac_idx[0][ii]
-ch = pac_idx[1][ii]
-
-# compute phase band
-lower_phase = psd_peaks[subj][ch][0] - (psd_peaks[subj][ch][2] / 2)
-upper_phase = psd_peaks[subj][ch][0] + (psd_peaks[subj][ch][2] / 2)
-
-# parameters
-fs = 1000
-phase_providing_band = [lower_phase, upper_phase]; #4-8 Hz band
-amplitude_providing_band = [80, 125]; #80-125 Hz band
-
-pac_plt.plot_signal(datastruct, phase_providing_band, amplitude_providing_band, subj, ch, fs)
-
-
-#%% Loop to get overall channel data
+#%% Loop over all channels with PAC using the CF and BW for phase data 
+### And extract and save the cycle-by-cycle features
 
 # create empty output
-median_time_decay = []
-mean_time_decay = []
-
-median_time_rise = []
-mean_time_rise = []
-
-median_volt_decay = []
-mean_volt_decay = []
-
-median_volt_rise = []
-mean_volt_rise = []
-
-median_volt_amp = []
-mean_volt_amp = []
-
 median_time_rdsym = []
 mean_time_rdsym = []
 
@@ -107,32 +60,21 @@ for ii in range(len(pac_idx[0])):
     fs = 1000
     f_range = [lower_phase, upper_phase]
     f_lowpass = 55
-    N_seconds = len(datastruct[0][10]) / fs - 2
+    N_seconds = len(datastruct[subj][ch]) / fs - 2
     
-    signal = lowpass_filter(signal, fs, f_lowpass, N_seconds=N_seconds, remove_edge_artifacts=False)
+    signal = lowpass_filter(datastruct[subj][ch], fs, f_lowpass, N_seconds=N_seconds, remove_edge_artifacts=False)
     
     df = compute_features(signal, fs, f_range)
-
-    mean_time_decay.append(df.time_decay.mean())
-    median_time_decay.append(df.time_decay.median())
-    
-    mean_time_rise.append(df.time_rise.mean())
-    median_time_rise.append(df.time_rise.median())
-    
-    mean_volt_decay.append(df.volt_decay.mean())
-    median_volt_decay.append(df.volt_decay.median())
-    
-    mean_volt_rise.append(df.volt_rise.mean())
-    median_volt_rise.append(df.volt_rise.median())
-    
-    mean_volt_amp.append(df.volt_amp.mean())
-    median_volt_amp.append(df.volt_amp.median())
     
     mean_time_rdsym.append(df.time_rdsym.mean())
     median_time_rdsym.append(df.time_rdsym.median())
     
     mean_time_ptsym.append(df.time_ptsym.mean())
     median_time_ptsym.append(df.time_ptsym.median())
+    
+    ### INCLUDE HERE:
+    ### - BURST DETECTION, AND WHAT TO DO WITH IT
+    ### - SAVE NOT ONLY MEDIAN AND MEAN SAVE, BUT WHOLE DF COLUMN
     
 #%% Save
     
@@ -251,7 +193,7 @@ for ii in range(len(pac_idx[0])):
     ch = pac_idx[1][ii]
     if len(psd_peaks[subj][ch]) > 0:
         cf.append(psd_peaks[subj][ch][0])
-        bw.append(psd_peaks[subj][ch][1])
+        bw.append(psd_peaks[subj][ch][2])
     
 plt.hist(cf, bins=60)
 plt.show()

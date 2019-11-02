@@ -30,11 +30,9 @@ pac_idx = np.load('pac_idx.npy')
 psd_peaks = np.load('psd_peaks.npy', allow_pickle=True)
 
 # ByCycle measures
-mean_time_rdsym = np.load('mean_time_rdsym.npy')   
-median_time_rdsym = np.load('median_time_rdsym.npy')   
-mean_time_ptsym = np.load('mean_time_ptsym.npy')   
-median_time_ptsym = np.load('median_time_ptsym.npy')   
-
+rdsym = np.load('rdsym.npy', allow_pickle=True)  
+ptsym = np.load('ptsym.npy', allow_pickle=True)  
+bursts = np.load('bursts.npy', allow_pickle=True)
 # + full symmetry measures
 
 #%% Only get the data with sign. PAC with CF < 35 Hz and Ampl < 1.5
@@ -50,13 +48,19 @@ for ii in range(len(pac_idx[0])):
         subj_idx.append(subj)
         ch_idx.append(ch)
 
-#%% Use these clean indexes to select the data 
+#%% Use these clean indexes to select the data from the bigger data to get
+### Only the data of the sign. channels
 
 clean_data = []
 clean_pac_rhos = []
 clean_resamp_zvals = []
 clean_resamp_pvals = []
 clean_psd_params = []
+clean_rdsym = []
+clean_ptsym = []
+clean_bursts = []
+
+
 
 for ii in range(len(subj_idx)):
     
@@ -68,6 +72,9 @@ for ii in range(len(subj_idx)):
     clean_resamp_zvals.append(pac_true_zvals[subj][ch])
     clean_resamp_pvals.append(pac_true_pvals[subj][ch]) 
     clean_psd_params.append(psd_peaks[subj][ch])
+    clean_rdsym.append(rdsym[ii])
+    clean_ptsym.append(ptsym[ii])
+    clean_bursts.append(bursts[ii])
     
     
     
@@ -84,6 +91,7 @@ clean_db['subj'] = subj_idx # array of the subjects to which data belong (pac_id
 clean_db['ch'] = ch_idx # array of the channels to which data belong (pac_idx[1])
 clean_db['locs'] = elec_locs
 clean_db['dat_name'] = 'fixation_pwrlaw'
+clean_db['fs'] = 1000
 
 # data
 clean_db['data'] = clean_data# list of arrays of channels with PAC
@@ -94,8 +102,21 @@ clean_db['resamp_zvals'] = clean_resamp_zvals # is now matrix, put in array with
 clean_db['resamp_pvals'] = clean_resamp_pvals # is now matrix, put in array with only sig PAC chs
 
 clean_db['psd_params'] = clean_psd_params # list of arrays,  put in array with only sig PAC chs
-#clean_db['rd_sym'] =  # list of arrays,  put in array with only sig PAC chs
-#clean_db['pt_sym'] = # list of arrays,  put in array with only sig PAC chs
+clean_db['rd_sym'] = clean_rdsym # list of arrays,  put in array with only sig PAC chs
+clean_db['pt_sym'] = clean_ptsym # list of arrays,  put in array with only sig PAC chs
+clean_db['bursts'] = clean_bursts # list of arrays,  put in array with only sig PAC chs
 
-#%%
-np.save('clean_db', clean_db)
+#%% Save with pickle
+
+import pickle
+
+save_data = open("clean_db.pkl","wb")
+pickle.dump(clean_db,save_data)
+save_data.close()
+
+#%% Load with Pickle
+
+import pickle
+load_data = open('clean_db.pkl','rb')
+clean_db = pickle.load(load_data)
+

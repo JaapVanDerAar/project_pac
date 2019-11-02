@@ -40,11 +40,16 @@ from scipy.signal import hilbert
 ### And extract and save the cycle-by-cycle features
 
 # create empty output
-median_time_rdsym = []
-mean_time_rdsym = []
+rdsym = []
+ptsym = []
+bursts = []
 
-median_time_ptsym = []
-mean_time_ptsym = []
+
+burst_kwargs = {'amplitude_fraction_threshold': 0,
+                'amplitude_consistency_threshold': .05,
+                'period_consistency_threshold': .4,
+                'monotonicity_threshold': .7,
+                'N_cycles_min': 3}
 
 # for every channel with pac
 for ii in range(len(pac_idx[0])):
@@ -53,35 +58,38 @@ for ii in range(len(pac_idx[0])):
     subj = pac_idx[0][ii]
     ch = pac_idx[1][ii]
     
-    # get phase providing band
-    lower_phase = psd_peaks[subj][ch][0] - (psd_peaks[subj][ch][2] / 2)
-    upper_phase = psd_peaks[subj][ch][0] + (psd_peaks[subj][ch][2] / 2)
-    
-    fs = 1000
-    f_range = [lower_phase, upper_phase]
-    f_lowpass = 55
-    N_seconds = len(datastruct[subj][ch]) / fs - 2
-    
-    signal = lowpass_filter(datastruct[subj][ch], fs, f_lowpass, N_seconds=N_seconds, remove_edge_artifacts=False)
-    
-    df = compute_features(signal, fs, f_range)
-    
-    mean_time_rdsym.append(df.time_rdsym.mean())
-    median_time_rdsym.append(df.time_rdsym.median())
-    
-    mean_time_ptsym.append(df.time_ptsym.mean())
-    median_time_ptsym.append(df.time_ptsym.median())
-    
-    ### INCLUDE HERE:
-    ### - BURST DETECTION, AND WHAT TO DO WITH IT
-    ### - SAVE NOT ONLY MEDIAN AND MEAN SAVE, BUT WHOLE DF COLUMN
-    
+    if (psd_peaks[subj][ch][0] < 35) & (psd_peaks[subj][ch][1] < 1.5):
+        
+        # get phase providing band
+        lower_phase = psd_peaks[subj][ch][0] - (psd_peaks[subj][ch][2] / 2)
+        upper_phase = psd_peaks[subj][ch][0] + (psd_peaks[subj][ch][2] / 2)
+        
+        fs = 1000
+        f_range = [lower_phase, upper_phase]
+        f_lowpass = 55
+        N_seconds = len(datastruct[subj][ch]) / fs - 2
+        
+        signal = lowpass_filter(datastruct[subj][ch], fs, f_lowpass, N_seconds=N_seconds, remove_edge_artifacts=False)
+        
+        df = compute_features(signal, fs, f_range,  burst_detection_kwargs=burst_kwargs)
+        
+        is_burst = df['is_burst'].tolist()
+        time_rdsym = df['time_rdsym'].to_numpy()
+        time_ptsym = df['time_ptsym'].to_numpy()
+        
+        bursts.append(is_burst)
+        rdsym.append(time_rdsym)
+        ptsym.append(time_ptsym)
+        ### INCLUDE HERE:
+        ### - BURST DETECTION, AND WHAT TO DO WITH IT
+        ### - SAVE NOT ONLY MEDIAN AND MEAN SAVE, BUT WHOLE DF COLUMN
+        
 #%% Save
     
-np.save('mean_time_rdsym', mean_time_rdsym)
-np.save('median_time_rdsym', median_time_rdsym)
-np.save('mean_time_ptsym', mean_time_ptsym)
-np.save('median_time_ptsym', median_time_ptsym)
+np.save('rdsym', rdsym)
+np.save('ptsym', ptsym)
+np.save('bursts', bursts)
+
 
 
 #%% Or load
@@ -223,3 +231,84 @@ plt.scatter(bw,cf)
 
 ### - periodic and aperiodic measures? 
 
+#%% 
+subj = 0 
+ch = 0
+
+signal = datastruct[subj][ch]
+
+from bycycle.burst import plot_burst_detect_params
+
+#burst_kwargs = {'amplitude_fraction_threshold': 0,
+#                'amplitude_consistency_threshold': .2,
+#                'period_consistency_threshold': .45,
+#                'monotonicity_threshold': .7,
+#                'N_cycles_min': 3}
+
+burst_kwargs = {'amplitude_fraction_threshold': .2,
+                'amplitude_consistency_threshold': .5,
+                'period_consistency_threshold': .5,
+                'monotonicity_threshold': .8,
+                'N_cycles_min': 3}
+
+lower_phase = psd_peaks[subj][ch][0] - (psd_peaks[subj][ch][2] / 2)
+upper_phase = psd_peaks[subj][ch][0] + (psd_peaks[subj][ch][2] / 2)
+
+Fs = 1000
+
+f_range = [lower_phase, upper_phase]
+df = compute_features(signal, Fs, f_range, burst_detection_kwargs=burst_kwargs)
+
+plot_burst_detect_params(signal, Fs, df, burst_kwargs,tlims=None, figsize=(16, 3))
+
+#%%
+burst_kwargs = {'amplitude_fraction_threshold': 0,
+                'amplitude_consistency_threshold': .2,
+                'period_consistency_threshold': .45,
+                'monotonicity_threshold': .7,
+                'N_cycles_min': 3}
+
+f_range = [lower_phase, upper_phase]
+low = int(round(f_range[0]))
+up = int(round(f_range[1]))
+f_range2 = [low, up]
+
+
+df = compute_features(signal, Fs, f_range2), burst_detection_kwargs=burst_kwargs)
+
+plot_burst_detect_params(signal, Fs, df, burst_kwargs, tlims=None, figsize=(16, 3))
+
+#%% Change datastruct data to float64
+
+for subj in range(len(datastruct)):
+    for ch in range(len(datastruct[subj])):
+        datastruct[subj][ch] = datastruct[subj][ch].astype(np.float64)
+
+#%% Plot to find right detection
+
+burst_kwargs = {'amplitude_fraction_threshold': 0,
+                'amplitude_consistency_threshold': .05,
+                'period_consistency_threshold': .4,
+                'monotonicity_threshold': .7,
+                'N_cycles_min': 3}
+
+# get subj & ch
+subj = pac_idx[0][ii]
+ch = pac_idx[1][ii]
+
+# get phase providing band
+lower_phase = psd_peaks[subj][ch][0] - (psd_peaks[subj][ch][2] / 2)
+upper_phase = psd_peaks[subj][ch][0] + (psd_peaks[subj][ch][2] / 2)
+
+fs = 1000
+f_range = [lower_phase, upper_phase]
+f_lowpass = 55
+N_seconds = len(datastruct[subj][ch]) / fs - 2
+
+#signal = lowpass_filter(datastruct[subj][ch], fs, f_lowpass, N_seconds=N_seconds, remove_edge_artifacts=False)
+
+signal = signal[5:10000] 
+
+df = compute_features(signal, fs, f_range,  burst_detection_kwargs=burst_kwargs)
+
+plot_burst_detect_params(signal, Fs, df, burst_kwargs, tlims=None, figsize=(16, 3))

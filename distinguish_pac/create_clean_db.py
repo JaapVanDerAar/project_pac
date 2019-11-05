@@ -61,7 +61,6 @@ clean_ptsym = []
 clean_bursts = []
 
 
-
 for ii in range(len(subj_idx)):
     
     subj = subj_idx[ii]
@@ -77,10 +76,6 @@ for ii in range(len(subj_idx)):
     clean_bursts.append(bursts[ii])
     
     
-    
-    
-    
-
 #%% 
 # create database
 clean_db = {}

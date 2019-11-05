@@ -44,10 +44,9 @@ rdsym = []
 ptsym = []
 bursts = []
 
-
 burst_kwargs = {'amplitude_fraction_threshold': 0,
-                'amplitude_consistency_threshold': .05,
-                'period_consistency_threshold': .4,
+                'amplitude_consistency_threshold': .2,
+                'period_consistency_threshold': .45,
                 'monotonicity_threshold': .7,
                 'N_cycles_min': 3}
 
@@ -80,9 +79,7 @@ for ii in range(len(pac_idx[0])):
         bursts.append(is_burst)
         rdsym.append(time_rdsym)
         ptsym.append(time_ptsym)
-        ### INCLUDE HERE:
-        ### - BURST DETECTION, AND WHAT TO DO WITH IT
-        ### - SAVE NOT ONLY MEDIAN AND MEAN SAVE, BUT WHOLE DF COLUMN
+
         
 #%% Save
     
@@ -106,7 +103,6 @@ plt.scatter(mean_time_ptsym, mean_time_rdsym)
 plt.ylim([.49,.525])
 plt.xlabel('Peak-Through Sym')
 plt.ylabel('Rise-Decay Sym')
-
 
 
 #%% Get cycle specific data per channel
@@ -245,10 +241,10 @@ from bycycle.burst import plot_burst_detect_params
 #                'monotonicity_threshold': .7,
 #                'N_cycles_min': 3}
 
-burst_kwargs = {'amplitude_fraction_threshold': .2,
-                'amplitude_consistency_threshold': .5,
-                'period_consistency_threshold': .5,
-                'monotonicity_threshold': .8,
+burst_kwargs = {'amplitude_fraction_threshold': 0,
+                'amplitude_consistency_threshold': .2,
+                'period_consistency_threshold': .45,
+                'monotonicity_threshold': .7,
                 'N_cycles_min': 3}
 
 lower_phase = psd_peaks[subj][ch][0] - (psd_peaks[subj][ch][2] / 2)
@@ -274,7 +270,7 @@ up = int(round(f_range[1]))
 f_range2 = [low, up]
 
 
-df = compute_features(signal, Fs, f_range2), burst_detection_kwargs=burst_kwargs)
+df = compute_features(signal, fs, f_range2, burst_detection_kwargs=burst_kwargs)
 
 plot_burst_detect_params(signal, Fs, df, burst_kwargs, tlims=None, figsize=(16, 3))
 
@@ -306,7 +302,7 @@ f_lowpass = 55
 N_seconds = len(datastruct[subj][ch]) / fs - 2
 
 #signal = lowpass_filter(datastruct[subj][ch], fs, f_lowpass, N_seconds=N_seconds, remove_edge_artifacts=False)
-
+signal = datastruct[subj][ch]
 signal = signal[5:10000] 
 
 df = compute_features(signal, fs, f_range,  burst_detection_kwargs=burst_kwargs)

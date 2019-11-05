@@ -87,7 +87,7 @@ pac_idx = list(np.where(pac_true_presence == 1))
 #%%
 
 # channel with PAC to plot
-ii = 3
+ii = 1
 
 # subj & ch
 subj = pac_idx[0][ii]

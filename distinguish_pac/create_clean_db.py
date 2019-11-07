@@ -44,9 +44,13 @@ for ii in range(len(pac_idx[0])):
     subj = pac_idx[0][ii]
     ch = pac_idx[1][ii]
     
-    if (psd_peaks[subj][ch][0] < 35) & (psd_peaks[subj][ch][1] < 1.5):
+    # 
+    if (psd_peaks[subj][ch][0] < 15) & (psd_peaks[subj][ch][1] > .2):
         subj_idx.append(subj)
         ch_idx.append(ch)
+        #plt.scatter(psd_peaks[subj][ch][0],psd_peaks[subj][ch][1])
+        
+#%%
 
 #%% Use these clean indexes to select the data from the bigger data to get
 ### Only the data of the sign. channels

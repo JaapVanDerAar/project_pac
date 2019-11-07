@@ -28,6 +28,7 @@ pac_idx = np.load('pac_idx.npy')
 psd_peaks = np.load('psd_peaks.npy', allow_pickle=True)
 
 #%% Play around with bycycle
+os.chdir(r'C:\Users\jaapv\Desktop\master\VoytekLab\Code\distinguish_pac')
 
 from bycycle.filt import lowpass_filter
 from bycycle.features import compute_features
@@ -44,10 +45,22 @@ rdsym = []
 ptsym = []
 bursts = []
 
-burst_kwargs = {'amplitude_fraction_threshold': 0,
-                'amplitude_consistency_threshold': .2,
+#burst_kwargs = {'amplitude_fraction_threshold': 0,
+#                'amplitude_consistency_threshold': .2,
+#                'period_consistency_threshold': .45,
+#                'monotonicity_threshold': .7,
+#                'N_cycles_min': 3}
+#
+#burst_kwargs = {'amplitude_fraction_threshold': 0,
+#                'amplitude_consistency_threshold': .25,
+#                'period_consistency_threshold': .45,
+#                'monotonicity_threshold': .6,
+#                'N_cycles_min': 3}
+
+burst_kwargs = {'amplitude_fraction_threshold': 0.25,
+                'amplitude_consistency_threshold': .4,
                 'period_consistency_threshold': .45,
-                'monotonicity_threshold': .7,
+                'monotonicity_threshold': .6,
                 'N_cycles_min': 3}
 
 # for every channel with pac
@@ -57,7 +70,7 @@ for ii in range(len(pac_idx[0])):
     subj = pac_idx[0][ii]
     ch = pac_idx[1][ii]
     
-    if (psd_peaks[subj][ch][0] < 35) & (psd_peaks[subj][ch][1] < 1.5):
+    if (psd_peaks[subj][ch][0] < 15) & (psd_peaks[subj][ch][1] >.2) & (psd_peaks[subj][ch][1] < 1.5):
         
         # get phase providing band
         lower_phase = psd_peaks[subj][ch][0] - (psd_peaks[subj][ch][2] / 2)
@@ -281,16 +294,16 @@ for subj in range(len(datastruct)):
         datastruct[subj][ch] = datastruct[subj][ch].astype(np.float64)
 
 #%% Plot to find right detection
-
-burst_kwargs = {'amplitude_fraction_threshold': 0,
-                'amplitude_consistency_threshold': .05,
-                'period_consistency_threshold': .4,
-                'monotonicity_threshold': .7,
+ii = 192
+burst_kwargs = {'amplitude_fraction_threshold': 0.25,
+                'amplitude_consistency_threshold': .4,
+                'period_consistency_threshold': .45,
+                'monotonicity_threshold': .6,
                 'N_cycles_min': 3}
 
 # get subj & ch
-subj = pac_idx[0][ii]
-ch = pac_idx[1][ii]
+subj = clean_db['subj'][ii]
+ch = clean_db['ch'][ii]
 
 # get phase providing band
 lower_phase = psd_peaks[subj][ch][0] - (psd_peaks[subj][ch][2] / 2)
@@ -303,8 +316,24 @@ N_seconds = len(datastruct[subj][ch]) / fs - 2
 
 #signal = lowpass_filter(datastruct[subj][ch], fs, f_lowpass, N_seconds=N_seconds, remove_edge_artifacts=False)
 signal = datastruct[subj][ch]
-signal = signal[5:10000] 
+signal = signal[10000:20000]
+
 
 df = compute_features(signal, fs, f_range,  burst_detection_kwargs=burst_kwargs)
 
-plot_burst_detect_params(signal, Fs, df, burst_kwargs, tlims=None, figsize=(16, 3))
+plot_burst_detect_params(signal, fs, df, burst_kwargs, tlims=None, figsize=(16, 3))
+
+plt.scatter(df['time_ptsym'][(df['is_burst'] == True)],df['time_rdsym'][(df['is_burst'] == True)])
+plt.scatter(df['time_ptsym'][(df['is_burst'] == False)],df['time_rdsym'][(df['is_burst'] == False)])
+plt.xlabel('PT')
+plt.ylabel('RD')
+plt.show()
+
+
+plt.hist(df['time_ptsym'][(df['is_burst'] == True)],alpha=.5)
+plt.hist(df['time_ptsym'][(df['is_burst'] == False)],alpha=.5)
+plt.show()
+
+plt.hist(df['time_rdsym'][(df['is_burst'] == True)],alpha=.5)
+plt.hist(df['time_rdsym'][(df['is_burst'] == False)],alpha=.5)
+plt.show()

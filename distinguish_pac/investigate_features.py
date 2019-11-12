@@ -43,6 +43,8 @@ psd_bw          = [psd_params[ii][2] for ii in range(len(psd_params))]
 
 clean_db.clear()
 
+#%% Put useful features into dataframe for easy plotting 
+
 features_df = pd.DataFrame()
 features_df['pac_rhos'] = pac_rhos 
 features_df['resamp_zvals'] = resamp_zvals
@@ -56,12 +58,6 @@ features_df['psd_cf'] = psd_cf
 features_df['psd_amp'] = psd_amp
 features_df['psd_bw'] = psd_bw
 
-#%% Simple hists to investigate data
-
-input_var = resamp_zvals
-
-fig = plt.figure(1)
-plt.hist(input_var)
 
 #%% Check: relationship between RD & PT symmetry
 
@@ -73,8 +69,8 @@ plt.title('Negative relationship between RD & PT')
 plt.show()
 # seems like small but consistent negative relationship
 
-plt.hist(std_pt_sym)
-plt.hist(std_rd_sym)
+plt.hist(std_pt_sym,alpha=.5)
+plt.hist(std_rd_sym,alpha=.5)
 plt.xlabel('Standard deviation of symmetry (RT & PT)')
 plt.title('smaller PT STDs')
 plt.show()
@@ -117,19 +113,19 @@ plt.show()
 # It does not really matter whether we use mean or median
 
 reg1 = linear_model.LinearRegression()
-reg1.fit(median_pt_sym, pac_rhos)
-xs = np.arange(min(median_pt_sym), max(median_pt_sym),0.01)
+reg1.fit(pac_rhos, median_pt_sym)
+xs = np.arange(min(pac_rhos), max(pac_rhos),0.01)
 ys = reg1.intercept_[0] + reg1.coef_[0][0] * xs
 plt.plot(xs, ys, '--k', linewidth=4, label='Model', alpha=.5)
 
 reg2 = linear_model.LinearRegression()
-reg2.fit(median_rd_sym, pac_rhos)
-xs = np.arange(min(median_rd_sym), max(median_rd_sym),0.01)
+reg2.fit(pac_rhos, median_rd_sym)
+xs = np.arange(min(pac_rhos), max(pac_rhos),0.01)
 ys = reg2.intercept_[0] + reg2.coef_[0][0] * xs
 plt.plot(xs, ys, '--k', linewidth=4, label='Model', alpha=.5)
 
-plt.scatter(median_pt_sym, pac_rhos, alpha=.5)
-plt.scatter(median_rd_sym, pac_rhos, alpha=.5)
+plt.scatter(pac_rhos, median_pt_sym, alpha=.5)
+plt.scatter(pac_rhos, median_rd_sym, alpha=.5)
 plt.xlabel('Rho Value')
 plt.ylabel('RD/PT sym')
 plt.title('PT seems to have a positive effect on the Rho value')
@@ -139,12 +135,12 @@ plt.show()
 
 
 reg = linear_model.LinearRegression()
-reg.fit(std_rd_sym, pac_rhos)
-xs = np.arange(min(std_rd_sym), max(std_rd_sym),0.01)
+reg.fit(pac_rhos, std_rd_sym)
+xs = np.arange(min(pac_rhos), max(pac_rhos),0.01)
 ys = reg.intercept_[0] + reg.coef_[0][0] * xs
 plt.plot(xs, ys, '--k', linewidth=4, label='Model', alpha=.5)
 
-plt.scatter(std_rd_sym, pac_rhos, alpha=.5)
+plt.scatter(pac_rhos, std_rd_sym, alpha=.5)
 plt.xlabel('Rho Value')
 plt.ylabel('RD Sym Standard deviation')
 plt.show()
@@ -331,26 +327,34 @@ plt.show()
 #%% Give Rho's and resampled Z-values specific colors and see how their values
 ### Are related to other parameters
 
+
+# give values 
+rho_low = .17
+rho_hi = .17
+zval_low = 10.5
+zval_hi = 10.5
+
+
 plt.figure(figsize=(15,10))
 
 # Blue Color: low Zval and low Rho
-plt.scatter(features_df["pac_rhos"][~(features_df["pac_rhos"] >.10) |  ~(features_df["resamp_zvals"] >7.5)],
-            features_df["resamp_zvals"][~(features_df["pac_rhos"] >.10) | ~(features_df["resamp_zvals"] >7.5)], 
+plt.scatter(features_df["pac_rhos"][~(features_df["pac_rhos"] > rho_low) |  ~(features_df["resamp_zvals"] > zval_low)],
+            features_df["resamp_zvals"][~(features_df["pac_rhos"] > rho_low) | ~(features_df["resamp_zvals"] > zval_low)], 
             c='blue', label='low Zval low Rho')
 
 # Red Color: low PT and high Rho 
-plt.scatter(features_df["pac_rhos"][(features_df["pac_rhos"] >.10)],
-            features_df["resamp_zvals"][(features_df["pac_rhos"] >.10)],
+plt.scatter(features_df["pac_rhos"][(features_df["pac_rhos"] > rho_low)],
+            features_df["resamp_zvals"][(features_df["pac_rhos"] > rho_low)],
             c='red', label='low Zval high Rho')
 
 # Yellow Color: High PT low Rho
-plt.scatter(features_df["pac_rhos"][(features_df["resamp_zvals"] >7.5)],
-            features_df["resamp_zvals"][(features_df["resamp_zvals"] >7.5)], 
+plt.scatter(features_df["pac_rhos"][(features_df["resamp_zvals"] > zval_low)],
+            features_df["resamp_zvals"][(features_df["resamp_zvals"] > zval_low)], 
             c='yellow', label='High Zval low Rho')
 
 # Green Color: High PT high Rho
-plt.scatter(features_df["pac_rhos"][(features_df["pac_rhos"] >.10) & (features_df["resamp_zvals"] >7.5)],
-            features_df["resamp_zvals"][(features_df["pac_rhos"] >.10) & (features_df["resamp_zvals"] >7.5)], 
+plt.scatter(features_df["pac_rhos"][(features_df["pac_rhos"] > rho_hi) & (features_df["resamp_zvals"] > zval_hi)],
+            features_df["resamp_zvals"][(features_df["pac_rhos"] > rho_hi) & (features_df["resamp_zvals"] > zval_hi)], 
             c='green', label='High Zval high Rho')
 
 plt.xlabel('Rho Value')
@@ -364,23 +368,23 @@ plt.show()
 plt.figure(figsize=(15,10))
 
 # Blue Color: low Zval and low Rho
-plt.scatter(features_df["median_pt_sym"][~(features_df["pac_rhos"] >.10) |  ~(features_df["resamp_zvals"] >7.5)],
-            features_df["median_rd_sym"][~(features_df["pac_rhos"] >.10) | ~(features_df["resamp_zvals"] >7.5)], 
+plt.scatter(features_df["median_pt_sym"][~(features_df["pac_rhos"] > rho_low) |  ~(features_df["resamp_zvals"] > zval_low)],
+            features_df["median_rd_sym"][~(features_df["pac_rhos"] > rho_low) | ~(features_df["resamp_zvals"] > zval_low)], 
             c='blue', label='low Zval low Rho')
 
 # Red Color: low PT and high Rho 
-plt.scatter(features_df["median_pt_sym"][(features_df["pac_rhos"] >.10)],
-            features_df["median_rd_sym"][(features_df["pac_rhos"] >.10)],
+plt.scatter(features_df["median_pt_sym"][(features_df["pac_rhos"] > rho_low)],
+            features_df["median_rd_sym"][(features_df["pac_rhos"] > rho_low)],
             c='red', label='low Zval high Rho')
 
 # Yellow Color: High PT low Rho
-plt.scatter(features_df["median_pt_sym"][(features_df["resamp_zvals"] >7.5)],
-            features_df["median_rd_sym"][(features_df["resamp_zvals"] >7.5)], 
+plt.scatter(features_df["median_pt_sym"][(features_df["resamp_zvals"] > zval_low)],
+            features_df["median_rd_sym"][(features_df["resamp_zvals"] > zval_low)], 
             c='yellow', label='High Zval low Rho')
 
 # Green Color: High PT high Rho
-plt.scatter(features_df["median_pt_sym"][(features_df["pac_rhos"] >.10) & (features_df["resamp_zvals"] >7.5)],
-            features_df["median_rd_sym"][(features_df["pac_rhos"] >.10) & (features_df["resamp_zvals"] >7.5)], 
+plt.scatter(features_df["median_pt_sym"][(features_df["pac_rhos"] > rho_hi) & (features_df["resamp_zvals"] > zval_hi)],
+            features_df["median_rd_sym"][(features_df["pac_rhos"] > rho_hi) & (features_df["resamp_zvals"] > zval_hi)], 
             c='green', label='High Zval high Rho')
 
 plt.xlabel('PT Symmetry')
@@ -394,23 +398,23 @@ plt.show()
 plt.figure(figsize=(15,10))
 
 # Blue Color: low Zval and low Rho
-plt.scatter(features_df["median_pt_sym"][~(features_df["pac_rhos"] >.10) |  ~(features_df["resamp_zvals"] >7.5)],
-            features_df["psd_cf"][~(features_df["pac_rhos"] >.10) | ~(features_df["resamp_zvals"] >7.5)], 
+plt.scatter(features_df["median_pt_sym"][~(features_df["pac_rhos"] > rho_low) |  ~(features_df["resamp_zvals"] > zval_low)],
+            features_df["psd_cf"][~(features_df["pac_rhos"] > rho_low) | ~(features_df["resamp_zvals"] > zval_low)], 
             c='blue', label='low Zval low Rho')
 
 # Red Color: low PT and high Rho 
-plt.scatter(features_df["median_pt_sym"][(features_df["pac_rhos"] >.10)],
-            features_df["psd_cf"][(features_df["pac_rhos"] >.10)],
+plt.scatter(features_df["median_pt_sym"][(features_df["pac_rhos"] > rho_low)],
+            features_df["psd_cf"][(features_df["pac_rhos"] > rho_low)],
             c='red', label='low Zval high Rho')
 
 # Yellow Color: High PT low Rho
-plt.scatter(features_df["median_pt_sym"][(features_df["resamp_zvals"] >7.5)],
-            features_df["psd_cf"][(features_df["resamp_zvals"] >7.5)], 
+plt.scatter(features_df["median_pt_sym"][(features_df["resamp_zvals"] > zval_low)],
+            features_df["psd_cf"][(features_df["resamp_zvals"] > zval_low)], 
             c='yellow', label='High Zval low Rho')
 
 # Green Color: High PT high Rho
-plt.scatter(features_df["median_pt_sym"][(features_df["pac_rhos"] >.10) & (features_df["resamp_zvals"] >7.5)],
-            features_df["psd_cf"][(features_df["pac_rhos"] >.10) & (features_df["resamp_zvals"] >7.5)], 
+plt.scatter(features_df["median_pt_sym"][(features_df["pac_rhos"] > rho_hi) & (features_df["resamp_zvals"] > zval_hi)],
+            features_df["psd_cf"][(features_df["pac_rhos"] > rho_hi) & (features_df["resamp_zvals"] > zval_hi)], 
             c='green', label='High Zval high Rho')
 
 plt.xlabel('PT Symmetry')
@@ -424,23 +428,23 @@ plt.show()
 plt.figure(figsize=(15,10))
 
 # Blue Color: low Zval and low Rho
-plt.scatter(features_df["std_rd_sym"][~(features_df["pac_rhos"] >.10) |  ~(features_df["resamp_zvals"] >7.5)],
-            features_df["pac_rhos"][~(features_df["pac_rhos"] >.10) | ~(features_df["resamp_zvals"] >7.5)], 
+plt.scatter(features_df["std_rd_sym"][~(features_df["pac_rhos"] > rho_low) |  ~(features_df["resamp_zvals"] > zval_low)],
+            features_df["pac_rhos"][~(features_df["pac_rhos"] > rho_low) | ~(features_df["resamp_zvals"] > zval_low)], 
             c='blue', label='low Zval low Rho')
 
 # Red Color: low PT and high Rho 
-plt.scatter(features_df["std_rd_sym"][(features_df["pac_rhos"] >.10)],
-            features_df["pac_rhos"][(features_df["pac_rhos"] >.10)],
+plt.scatter(features_df["std_rd_sym"][(features_df["pac_rhos"] > rho_low)],
+            features_df["pac_rhos"][(features_df["pac_rhos"] > rho_low)],
             c='red', label='low Zval high Rho')
 
 # Yellow Color: High PT low Rho
-plt.scatter(features_df["std_rd_sym"][(features_df["resamp_zvals"] >7.5)],
-            features_df["pac_rhos"][(features_df["resamp_zvals"] >7.5)], 
+plt.scatter(features_df["std_rd_sym"][(features_df["resamp_zvals"] > zval_low)],
+            features_df["pac_rhos"][(features_df["resamp_zvals"] > zval_low)], 
             c='yellow', label='High Zval low Rho')
 
 # Green Color: High PT high Rho
-plt.scatter(features_df["std_rd_sym"][(features_df["pac_rhos"] >.10) & (features_df["resamp_zvals"] >7.5)],
-            features_df["pac_rhos"][(features_df["pac_rhos"] >.10) & (features_df["resamp_zvals"] >7.5)], 
+plt.scatter(features_df["std_rd_sym"][(features_df["pac_rhos"] > rho_hi) & (features_df["resamp_zvals"] > zval_hi)],
+            features_df["pac_rhos"][(features_df["pac_rhos"] > rho_hi) & (features_df["resamp_zvals"] > zval_hi)], 
             c='green', label='High Zval high Rho')
 
 plt.xlabel('RD STD')
@@ -449,5 +453,72 @@ plt.title('High outcome measures have less variation in the RD symmetry')
 plt.legend(scatterpoints=1, loc='upper left');
 plt.show()
 
+#%% Higher outcome measures have less variation in symmetry (especially in RD)
+
+plt.figure(figsize=(15,10))
+
+# Blue Color: low Zval and low Rho
+plt.scatter(features_df["std_rd_sym"][~(features_df["pac_rhos"] > rho_low) |  ~(features_df["resamp_zvals"] > zval_low)],
+            features_df["median_pt_sym"][~(features_df["pac_rhos"] > rho_low) | ~(features_df["resamp_zvals"] > zval_low)], 
+            c='blue', label='low Zval low Rho')
+
+# Red Color: low PT and high Rho 
+plt.scatter(features_df["std_rd_sym"][(features_df["pac_rhos"] > rho_low)],
+            features_df["median_pt_sym"][(features_df["pac_rhos"] > rho_low)],
+            c='red', label='low Zval high Rho')
+
+# Yellow Color: High PT low Rho
+plt.scatter(features_df["std_rd_sym"][(features_df["resamp_zvals"] > zval_low)],
+            features_df["median_pt_sym"][(features_df["resamp_zvals"] > zval_low)], 
+            c='yellow', label='High Zval low Rho')
+
+# Green Color: High PT high Rho
+plt.scatter(features_df["std_rd_sym"][(features_df["pac_rhos"] > rho_hi) & (features_df["resamp_zvals"] > zval_hi)],
+            features_df["median_pt_sym"][(features_df["pac_rhos"] > rho_hi) & (features_df["resamp_zvals"] > zval_hi)], 
+            c='green', label='High Zval high Rho')
+
+plt.xlabel('RD STD')
+plt.ylabel('median_pt_sym')
+plt.title('High outcome measures have less variation in the RD symmetry')
+plt.legend(scatterpoints=1, loc='upper left');
+plt.show()
+
+#%%
+
+pd.plotting.scatter_matrix(features_df, figsize=(40,40))
 
 
+#%% ML - Supervised
+
+
+# Prediction: Rho value
+# Features: PT, RD, STD's, CF, BW
+
+# pac_rhos = np.reshape(pac_rhos, [len(pac_rhos), 1])
+psd_cf = np.reshape(psd_cf, [len(psd_cf), 1])
+psd_bw = np.reshape(psd_bw, [len(psd_bw), 1])
+median_pt_sym = np.reshape(median_pt_sym, [len(median_pt_sym), 1])
+median_rd_sym  = np.reshape(median_rd_sym, [len(median_rd_sym), 1])
+std_rd_sym  = np.reshape(std_rd_sym, [len(std_rd_sym), 1])
+std_pt_sym  = np.reshape(std_pt_sym, [len(std_rd_sym), 1])
+
+pac_rhos_binary = []
+for ii in range(len(pac_rhos)):
+    if pac_rhos[ii] > 0.1:
+        pac_rhos_binary_0 = 1
+    else: 
+        pac_rhos_binary_0 = 0
+        
+    pac_rhos_binary.append(pac_rhos_binary_0)
+        
+pac_rhos_binary = np.reshape(pac_rhos_binary, [len(pac_rhos_binary)])
+
+x_hat = np.hstack((median_pt_sym, median_rd_sym, std_pt_sym, std_rd_sym, psd_cf, psd_bw))
+y_hat = pac_rhos_binary
+
+from sklearn.neighbors import KNeighborsClassifier
+knn = KNeighborsClassifier(n_neighbors=3)
+knn.fit(x_hat,y_hat)
+
+#%% ML - Unsupervised
+# first scale features

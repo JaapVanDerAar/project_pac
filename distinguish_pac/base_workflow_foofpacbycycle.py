@@ -53,7 +53,7 @@ datastruct, elec_locs = load_data.load_data_timewindow(dat_name, subjects, fs, t
 
 #%% Calculate largest peak in PSD using FOOF
 
-psd_peaks = detect_pac.fooof_highest_peak(datastruct, fs)
+psd_peaks, backgr_params = detect_pac.fooof_highest_peak(datastruct, fs)
 
 
 #%% So now we have the peaks. Use those as input phase frequency for detecting PAC
@@ -132,8 +132,10 @@ pac_true_presence = np.load('pac_true_presence.npy')
 pac_idx = np.load('pac_idx.npy')
 pac_rhos = np.load('pac_rhos.npy')
 
-# psd peaks
+# FOOOF features
 psd_peaks = np.load('psd_peaks.npy', allow_pickle=True)
+backgr_params = np.load('backgr_params.npy', allow_pickle=True)
+
 
 
 #%% Now, we only select those channels that have a CF of < 15 Hz, 
@@ -159,6 +161,9 @@ ch_idx = [pac_idx[1][ii]  \
 rdsym = []
 ptsym = []
 bursts = []
+period = []
+volt_amp = []
+
 
 #burst_kwargs = {'amplitude_fraction_threshold': 0,
 #                'amplitude_consistency_threshold': .2,
@@ -201,10 +206,14 @@ for ii in range(len(subj_idx)):
     is_burst = df['is_burst'].tolist()
     time_rdsym = df['time_rdsym'].to_numpy()
     time_ptsym = df['time_ptsym'].to_numpy()
+    period_ch = df['period'].to_numpy()
+    volt_amp_ch = df['volt_amp'].to_numpy()
     
     bursts.append(is_burst)
     rdsym.append(time_rdsym)
     ptsym.append(time_ptsym)
+    period.append(period_ch)
+    volt_amp.append(volt_amp_ch)
 
 #%% Load save ByCycle measures + index after picking channels with specific CF and Amp
         
@@ -227,9 +236,7 @@ clean_pac_rhos = []
 clean_resamp_zvals = []
 clean_resamp_pvals = []
 clean_psd_params = []
-clean_rdsym = []
-clean_ptsym = []
-clean_bursts = []
+clean_backgr_params = []
 
 
 for ii in range(len(subj_idx)):
@@ -242,15 +249,13 @@ for ii in range(len(subj_idx)):
     clean_resamp_zvals.append(pac_true_zvals[subj][ch])
     clean_resamp_pvals.append(pac_true_pvals[subj][ch]) 
     clean_psd_params.append(psd_peaks[subj][ch])
-    clean_rdsym.append(rdsym[ii])
-    clean_ptsym.append(ptsym[ii])
-    clean_bursts.append(bursts[ii])
+    clean_backgr_params.append(backgr_params[subj][ch])
     
 #%% Create database in dictonairy form
     
 clean_db = {}
 
-# metedata
+# metadata
 clean_db['subj_name'] = subjects # list of initials of subjects (subjects)
 clean_db['subj'] = subj_idx # array of the subjects to which data belong (pac_idx[0])
 clean_db['ch'] = ch_idx # array of the channels to which data belong (pac_idx[1])
@@ -267,9 +272,12 @@ clean_db['resamp_zvals'] = clean_resamp_zvals # is now matrix, put in array with
 clean_db['resamp_pvals'] = clean_resamp_pvals # is now matrix, put in array with only sig PAC chs
 
 clean_db['psd_params'] = clean_psd_params # list of arrays,  put in array with only sig PAC chs
-clean_db['rd_sym'] = clean_rdsym # list of arrays,  put in array with only sig PAC chs
-clean_db['pt_sym'] = clean_ptsym # list of arrays,  put in array with only sig PAC chs
-clean_db['bursts'] = clean_bursts # list of arrays,  put in array with only sig PAC chs
+clean_db['backgr_params'] = clean_backgr_params # list of arrays,  put in array with only sig PAC chs
+clean_db['rd_sym'] = rdsym # list of arrays,  put in array with only sig PAC chs
+clean_db['pt_sym'] = ptsym # list of arrays,  put in array with only sig PAC chs
+clean_db['bursts'] = bursts # list of arrays,  put in array with only sig PAC chs
+clean_db['period'] = period # list of arrays,  put in array with only sig PAC chs
+clean_db['volt_amp'] = volt_amp # list of arrays,  put in array with only sig PAC chs
 
 # Save with pickle
 import pickle

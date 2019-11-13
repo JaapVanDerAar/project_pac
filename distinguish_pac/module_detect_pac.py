@@ -346,11 +346,13 @@ def fooof_highest_peak(datastruct, fs):
     """
     # initialze storing array
     psd_peaks = []
+    backgr_params = []
     
     for subj in range(len(datastruct)):
         
         # initialize channel specific storage array
         psd_peak_chs = []
+        backgr_params_ch = []
         
         for ch in range(len(datastruct[subj])):
             
@@ -382,6 +384,9 @@ def fooof_highest_peak(datastruct, fs):
                 # Central frequency, Amplitude, Bandwidth
                 peak_params = fm.peak_params_
                 
+                #offset, knee, slope
+                background_params = fm.background_params_
+                
                 if len(peak_params) > 0: 
                     
                     # find which peak has the biggest amplitude
@@ -393,7 +398,11 @@ def fooof_highest_peak(datastruct, fs):
                 elif len(peak_params) == 0:
                     
                     psd_peak_chs.append(peak_params)
+                
+                backgr_params_ch.append(background_params)
+                      
                     
         psd_peaks.append(psd_peak_chs)
+        backgr_params.append(backgr_params_ch)
             
-    return psd_peaks
+    return psd_peaks, backgr_params

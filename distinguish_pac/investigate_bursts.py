@@ -2,8 +2,6 @@ import os
 import numpy as np
 import pickle
 import matplotlib.pyplot as plt
-from sklearn import linear_model
-import pandas as pd
 
 #%%  Load data 
 
@@ -88,21 +86,24 @@ for ii in range(len(rd_sym)):
     
 #%% Plot some channel specific stuff to get idea of differences
 ### The no bursts removes the artifical RDs of 0.0 and 1.0 but no further difference
-ii = 192
-plt.scatter(pt_sym_bursts[ii], rd_sym_bursts[ii],alpha=.4)
-plt.scatter(pt_sym_nobursts[ii], rd_sym_nobursts[ii],alpha=.4)
-plt.xlabel('PT')
-plt.ylabel('RD')
-plt.title('Not so much difference between bursts and non-bursts, except for the RD artifacts')
-plt.show()
-
-plt.hist(pt_sym_bursts[ii],alpha=.5)
-plt.hist(pt_sym_nobursts[ii],alpha=.5)
-plt.show()
-
-plt.hist(rd_sym_bursts[ii],alpha=.5)
-plt.hist(rd_sym_nobursts[ii],alpha=.5)
-plt.show()    
+for ii in range(len(pt_sym_bursts)):
+        
+        
+        
+    plt.scatter(pt_sym_bursts[ii], rd_sym_bursts[ii],alpha=.4)
+    plt.scatter(pt_sym_nobursts[ii], rd_sym_nobursts[ii],alpha=.4)
+    plt.xlabel('PT')
+    plt.ylabel('RD')
+    plt.title('Not so much difference between bursts and non-bursts, except for the RD artifacts')
+    plt.show()
+    
+    plt.hist(pt_sym_bursts[ii],alpha=.5)
+    plt.hist(pt_sym_nobursts[ii],alpha=.5)
+    plt.show()
+    
+    plt.hist(rd_sym_bursts[ii],alpha=.5)
+    plt.hist(rd_sym_nobursts[ii],alpha=.5)
+    plt.show()    
 
 
 

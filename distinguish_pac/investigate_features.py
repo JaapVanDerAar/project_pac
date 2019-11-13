@@ -24,9 +24,12 @@ pac_rhos    = clean_db['pac_rhos']
 resamp_zvals = clean_db['resamp_zvals']
 resamp_pvals = clean_db['resamp_pvals']
 psd_params  = clean_db['psd_params']
+backgr_params = clean_db['backgr_params']
 rd_sym      = clean_db['rd_sym']
 pt_sym      = clean_db['pt_sym']
 bursts      = clean_db['bursts']
+period      = clean_db['period']
+volt_amp    = clean_db['volt_amp']
 fs          = clean_db['fs']
 
 mean_rd_sym     = [np.mean(rd_sym[ii]) for ii in range(len(rd_sym))]
@@ -37,9 +40,16 @@ mean_pt_sym     = [np.mean(pt_sym[ii]) for ii in range(len(pt_sym))]
 median_pt_sym   = [np.median(pt_sym[ii]) for ii in range(len(pt_sym))]
 std_pt_sym      = [np.std(pt_sym[ii]) for ii in range(len(pt_sym))]
 
+median_volt_amp = [np.median(volt_amp[ii]) for ii in range(len(volt_amp))]
+median_period   = [np.median(period[ii]) for ii in range(len(period))]
+
 psd_cf          = [psd_params[ii][0] for ii in range(len(psd_params))]
 psd_amp         = [psd_params[ii][1] for ii in range(len(psd_params))]
 psd_bw          = [psd_params[ii][2] for ii in range(len(psd_params))]
+
+backgr_offset = [backgr_params[ii][0] for ii in range(len(backgr_params))]
+backgr_knee   = [backgr_params[ii][1] for ii in range(len(backgr_params))]
+backgr_exp  = [backgr_params[ii][2] for ii in range(len(backgr_params))]
 
 clean_db.clear()
 
@@ -48,15 +58,15 @@ clean_db.clear()
 features_df = pd.DataFrame()
 features_df['pac_rhos'] = pac_rhos 
 features_df['resamp_zvals'] = resamp_zvals
-features_df['mean_rd_sym'] = mean_rd_sym
 features_df['median_rd_sym'] = median_rd_sym
-features_df['std_rd_sym'] = std_rd_sym
-features_df['mean_pt_sym'] = mean_pt_sym
 features_df['median_pt_sym'] = median_pt_sym
-features_df['std_pt_sym'] = std_pt_sym
 features_df['psd_cf'] = psd_cf
 features_df['psd_amp'] = psd_amp
 features_df['psd_bw'] = psd_bw
+features_df['backgr_exp'] = backgr_exp
+features_df['backgr_offset'] = backgr_offset
+features_df['backgr_knee'] = backgr_knee
+features_df['median_volt_amp'] = median_volt_amp
 
 
 #%% Check: relationship between RD & PT symmetry
@@ -486,6 +496,25 @@ plt.show()
 #%%
 
 pd.plotting.scatter_matrix(features_df, figsize=(40,40))
+
+#%%
+
+plt.matshow(features_df.corr())
+
+#%% NEXT STEPS: 
+
+# 1) get all features
+# 2) look at colloniarity (correlations) and select features
+# 3) do PCA
+# 4) unsupervised clustering
+
+
+
+
+
+
+
+
 
 
 #%% ML - Supervised

@@ -493,20 +493,198 @@ plt.title('High outcome measures have less variation in the RD symmetry')
 plt.legend(scatterpoints=1, loc='upper left');
 plt.show()
 
-#%%
-
-pd.plotting.scatter_matrix(features_df, figsize=(40,40))
-
-#%%
-
-plt.matshow(features_df.corr())
-
 #%% NEXT STEPS: 
 
 # 1) get all features
 # 2) look at colloniarity (correlations) and select features
 # 3) do PCA
 # 4) unsupervised clustering
+
+
+
+#%% Inspect features
+
+pd.plotting.scatter_matrix(features_df, figsize=(40,40))
+
+
+#%%
+
+
+f = plt.figure(figsize=(19, 15))
+plt.matshow(features_df.corr(), fignum=f.number)
+plt.xticks(range(features_df.shape[1]), features_df.columns, fontsize=14, rotation=45)
+plt.yticks(range(features_df.shape[1]), features_df.columns, fontsize=14)
+cb = plt.colorbar()
+cb.ax.tick_params(labelsize=14)
+plt.title('Correlation Matrix', fontsize=16);
+
+#%% adjust features in features_df
+
+# drop backgr_knee, because no correlations with other data, 
+# and has homogeneous data
+
+features_df = features_df.drop(columns='backgr_knee')
+
+# Log transfer psd_bw
+features_df['psd_bw_log'] = np.log(features_df['psd_bw'])
+# drop old psd_bw for clean df
+features_df = features_df.drop(columns='psd_bw')
+
+# and create 1 feature out of pac_rhos + resamp_zvals
+# and create 1 feature out of backgr_exp and offset
+
+
+#%% Scale data & PCA example
+
+from sklearn.datasets import load_breast_cancer
+from sklearn.preprocessing import StandardScaler
+from sklearn.decomposition import PCA
+import mglearn
+cancer = load_breast_cancer()
+
+# Scale data
+scaler = StandardScaler()
+scaler.fit(cancer.data)
+X_scaled = scaler.transform(cancer.data)
+
+# PCA
+pca = PCA(n_components=2)
+pca.fit(X_scaled)
+X_pca = pca.transform(X_scaled)
+
+# plot first vs. second principal component, colored by class
+plt.figure(figsize=(8, 8))
+mglearn.discrete_scatter(X_pca[:, 0], X_pca[:, 1], cancer.target)
+plt.legend(cancer.target_names, loc="best")
+plt.gca().set_aspect("equal")
+plt.xlabel("First principal component")
+plt.ylabel("Second principal component")
+
+# understand components
+plt.matshow(pca.components_, cmap='viridis')
+plt.yticks([0, 1], ["First component", "Second component"])
+plt.colorbar()
+plt.xticks(range(len(cancer.feature_names)),
+cancer.feature_names, rotation=60, ha='left')
+plt.xlabel("Feature")
+plt.ylabel("Principal components")
+
+
+#%% Set data to right structure for ML with sklearn
+
+# first, logtransform bandwidth
+psd_bw_log = np.log(psd_bw)
+
+# and create 1 feature out of pac_rhos + resamp_zvals
+scaler = StandardScaler()
+pac_values = scaler.fit_transform(pac_rhos) + scaler.fit_transform(resamp_zvals)
+
+# and create 1 feature out of backgr_exp and offset
+scaler = StandardScaler()
+aperiodic_param = scaler.fit_transform(backgr_exp) + scaler.fit_transform(backgr_offset)
+
+
+pac_values = np.reshape(pac_values, [len(pac_values), 1])
+resamp_zvals = np.reshape(resamp_zvals, [len(resamp_zvals), 1])
+median_rd_sym  = np.reshape(median_rd_sym, [len(median_rd_sym), 1])
+median_pt_sym = np.reshape(median_pt_sym, [len(median_pt_sym), 1])
+psd_cf = np.reshape(psd_cf, [len(psd_cf), 1])
+psd_amp = np.reshape(psd_amp, [len(psd_amp), 1])
+aperiodic_param = np.reshape(aperiodic_param, [len(aperiodic_param), 1])
+median_volt_amp = np.reshape(median_volt_amp, [len(median_volt_amp), 1])
+psd_bw_log = np.reshape(psd_bw_log, [len(psd_bw_log), 1])
+
+pac_features = np.hstack((pac_values, median_rd_sym, median_pt_sym, psd_cf, \
+                          psd_amp, aperiodic_param, median_volt_amp, psd_bw_log))
+
+# scale data
+scaler = StandardScaler()
+scaler.fit(pac_features)
+X_scaled = scaler.transform(pac_features)
+
+#%% PAC Scale data & PCA 
+
+
+feature_list = ['pac_values', 'median_rd_sym', 'median_pt_sym', 'psd_cf', \
+                'psd_amp', 'aperiodic_param', 'median_volt_amp', 'psd_bw_log']
+# scale data
+scaler = StandardScaler()
+scaler.fit(pac_features)
+X_scaled = scaler.transform(pac_features)
+
+# PCA
+pca = PCA(n_components=2)
+pca.fit(X_scaled)
+X_pca = pca.transform(X_scaled)
+
+# plot data based on components
+plt.figure(figsize=(8, 8))
+plt.scatter(X_pca[:, 0], X_pca[:, 1])
+plt.title('Plot data based on components')
+plt.xlabel("First principal component")
+plt.ylabel("Second principal component")
+
+# insight in components
+plt.matshow(pca.components_, cmap='viridis')
+plt.yticks([0, 1], ["First component", "Second component"])
+plt.colorbar()
+plt.xticks(range(len(feature_list)),
+feature_list, rotation=60, ha='left')
+plt.xlabel("Feature")
+plt.ylabel("Principal components")
+
+
+#%% K-means
+
+from sklearn.cluster import KMeans
+kmeans = KMeans(n_clusters=2)
+kmeans.fit(X_scaled)
+
+# visualize on PCA  
+mglearn.discrete_scatter(X_pca[:, 0], X_pca[:, 1], kmeans.labels_, markers='o')
+mglearn.discrete_scatter(kmeans.cluster_centers_[:, 0], kmeans.cluster_centers_[:, 1], [0, 1], markers='^', markeredgewidth=3)
+plt.title('K-Means: Plot clusters visualized on PCA\'s including center')
+plt.xlabel("First principal component")
+plt.ylabel("Second principal component")
+
+from sklearn.metrics.cluster import adjusted_rand_score
+
+#%% Agglomerative clustering
+
+from sklearn.cluster import AgglomerativeClustering
+agg = AgglomerativeClustering(n_clusters=2)
+assignment = agg.fit_predict(X_scaled)
+mglearn.discrete_scatter(X_pca[:, 0], X_pca[:, 1], assignment)
+plt.title('AggloClustering: Plot clusters visualized on PCA\'s') 
+plt.xlabel("Component 1")
+plt.ylabel("Component 2")
+
+
+#%% Hierarchical cluster / Dendogram
+
+from scipy.cluster.hierarchy import dendrogram, ward
+
+linkage_array = ward(X_scaled)
+
+# Now we plot the dendrogram for the linkage_array containing the distances
+# between clusters
+dendrogram(linkage_array)
+# Mark the cuts in the tree that signify two or three clusters
+ax = plt.gca()
+bounds = ax.get_xbound()
+plt.title('Might consider 3 clusters')
+plt.ylabel("Cluster distance")
+
+#%% DBSCAN
+
+from sklearn.cluster import DBSCAN
+dbscan = DBSCAN(eps=0.1,min_samples=2)
+clusters = dbscan.fit_predict(X_scaled)
+# plot the cluster assignments
+plt.scatter(X_scaled[:, 0], X_pca[:, 1])#, c=clusters, cmap=mglearn.cm2, s=60)
+plt.xlabel("Feature 0")
+plt.ylabel("Feature 1")
+
 
 
 

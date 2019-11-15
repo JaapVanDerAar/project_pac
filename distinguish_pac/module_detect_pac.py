@@ -16,6 +16,7 @@ def cal_pac_values(datastruct, phase_providing_band, amplitude_providing_band, f
     -   Datastruct [subj * channels * data ] in numpy arrays
     -   Phase and amplitude frequency bands
     -   Sampling Frequency"""    
+    
     # create output matrix of 20 * 64 (subj * max channels)
     pac_presence = pd.DataFrame(np.nan, index=range(len(datastruct)), columns=range(64))
     pac_pvals = pd.DataFrame(np.nan, index=range(len(datastruct)), columns=range(64))
@@ -342,8 +343,11 @@ def fooof_highest_peak(datastruct, fs):
         
     Outputs:
         Arrays of biggest peak characterics [CF, Ampl, BW]
+        Array of background parameters [Exp, knee, offset]
     
     """
+    
+    
     # initialze storing array
     psd_peaks = []
     backgr_params = []
@@ -404,5 +408,79 @@ def fooof_highest_peak(datastruct, fs):
                     
         psd_peaks.append(psd_peak_chs)
         backgr_params.append(backgr_params_ch)
+        
             
     return psd_peaks, backgr_params
+
+#%%
+    
+### TESTTESTTEST
+
+
+
+
+start = time.time()
+
+# initialze storing array
+psd_peaks = [[None]] * len(datastruct)
+backgr_params = [[None]] * len(datastruct)
+
+for subj in range(len(datastruct)):
+    
+    # initialize channel specific storage array
+    psd_peak_chs = [None] * len(datastruct[subj])
+    backgr_params_ch = [None] * len(datastruct[subj])
+    
+    for ch in range(len(datastruct[subj])):
+        
+        # get signal
+        sig = datastruct[subj][ch]
+        
+        # compute frequency spectrum
+        freq_mean, psd_mean = spectral.compute_spectrum(sig, fs, method='welch', avg_type='mean', nperseg=fs*2)
+     
+        # Set the frequency range upon which to fit FOOOF
+        freq_range = [4, 55]
+        bw_lims = [2, 8]
+        max_n_peaks = 4
+        
+        if sum(psd_mean) == 0: 
+            
+            peak_params = np.empty([0, 3])
+            
+            psd_peak_chs[ch] = peak_params
+            
+        else:
+            
+            # Initialize FOOOF model
+            fm = FOOOF(peak_width_limits=bw_lims, background_mode='knee', max_n_peaks=max_n_peaks)
+            
+            # fit model
+            fm.fit(freq_mean, psd_mean, freq_range) 
+            
+            # Central frequency, Amplitude, Bandwidth
+            peak_params = fm.peak_params_
+            
+            #offset, knee, slope
+            background_params = fm.background_params_
+            
+            if len(peak_params) > 0: 
+                
+                # find which peak has the biggest amplitude
+                max_ampl_idx = np.argmax(peak_params[:,1])
+                    
+                # define biggest peak in power spectrum and add to channel array
+                psd_peak_chs[ch] = peak_params[max_ampl_idx]
+            
+            elif len(peak_params) == 0:
+                
+                psd_peak_chs[ch] = peak_params
+            
+            backgr_params_ch[ch] = background_params
+                  
+                
+    psd_peaks[subj] = psd_peak_chs
+    backgr_params[subj] = backgr_params_ch
+    
+end = time.time()
+print(end - start)

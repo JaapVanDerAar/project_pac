@@ -526,7 +526,7 @@ plt.title('Correlation Matrix', fontsize=16);
 features_df = features_df.drop(columns='backgr_knee')
 
 # Log transfer psd_bw
-features_df['psd_bw_log'] = np.log(features_df['psd_bw'])
+features_df['psd_bw_log'] = np.log10(features_df['psd_bw'])
 # drop old psd_bw for clean df
 features_df = features_df.drop(columns='psd_bw')
 
@@ -536,44 +536,27 @@ features_df = features_df.drop(columns='psd_bw')
 
 #%% Scale data & PCA example
 
-from sklearn.datasets import load_breast_cancer
 from sklearn.preprocessing import StandardScaler
 from sklearn.decomposition import PCA
 import mglearn
-cancer = load_breast_cancer()
-
-# Scale data
-scaler = StandardScaler()
-scaler.fit(cancer.data)
-X_scaled = scaler.transform(cancer.data)
-
-# PCA
-pca = PCA(n_components=2)
-pca.fit(X_scaled)
-X_pca = pca.transform(X_scaled)
-
-# plot first vs. second principal component, colored by class
-plt.figure(figsize=(8, 8))
-mglearn.discrete_scatter(X_pca[:, 0], X_pca[:, 1], cancer.target)
-plt.legend(cancer.target_names, loc="best")
-plt.gca().set_aspect("equal")
-plt.xlabel("First principal component")
-plt.ylabel("Second principal component")
-
-# understand components
-plt.matshow(pca.components_, cmap='viridis')
-plt.yticks([0, 1], ["First component", "Second component"])
-plt.colorbar()
-plt.xticks(range(len(cancer.feature_names)),
-cancer.feature_names, rotation=60, ha='left')
-plt.xlabel("Feature")
-plt.ylabel("Principal components")
 
 
 #%% Set data to right structure for ML with sklearn
 
 # first, logtransform bandwidth
-psd_bw_log = np.log(psd_bw)
+psd_bw_log10 = np.log10(psd_bw)
+
+# change to right shape for sklearn
+pac_rhos = np.reshape(pac_rhos, [len(pac_rhos), 1])
+resamp_zvals = np.reshape(resamp_zvals, [len(resamp_zvals), 1])
+median_rd_sym  = np.reshape(median_rd_sym, [len(median_rd_sym), 1])
+median_pt_sym = np.reshape(median_pt_sym, [len(median_pt_sym), 1])
+psd_cf = np.reshape(psd_cf, [len(psd_cf), 1])
+psd_amp = np.reshape(psd_amp, [len(psd_amp), 1])
+backgr_exp = np.reshape(backgr_exp, [len(backgr_exp), 1])
+backgr_offset = np.reshape(backgr_offset, [len(backgr_offset), 1])
+median_volt_amp = np.reshape(median_volt_amp, [len(median_volt_amp), 1])
+psd_bw_log10 = np.reshape(psd_bw_log10, [len(psd_bw_log10), 1])
 
 # and create 1 feature out of pac_rhos + resamp_zvals
 scaler = StandardScaler()
@@ -583,19 +566,12 @@ pac_values = scaler.fit_transform(pac_rhos) + scaler.fit_transform(resamp_zvals)
 scaler = StandardScaler()
 aperiodic_param = scaler.fit_transform(backgr_exp) + scaler.fit_transform(backgr_offset)
 
-
-pac_values = np.reshape(pac_values, [len(pac_values), 1])
-resamp_zvals = np.reshape(resamp_zvals, [len(resamp_zvals), 1])
-median_rd_sym  = np.reshape(median_rd_sym, [len(median_rd_sym), 1])
-median_pt_sym = np.reshape(median_pt_sym, [len(median_pt_sym), 1])
-psd_cf = np.reshape(psd_cf, [len(psd_cf), 1])
-psd_amp = np.reshape(psd_amp, [len(psd_amp), 1])
+# change to right shape for sklearn 
 aperiodic_param = np.reshape(aperiodic_param, [len(aperiodic_param), 1])
-median_volt_amp = np.reshape(median_volt_amp, [len(median_volt_amp), 1])
-psd_bw_log = np.reshape(psd_bw_log, [len(psd_bw_log), 1])
+pac_values = np.reshape(pac_values, [len(pac_values), 1])
 
-pac_features = np.hstack((pac_values, median_rd_sym, median_pt_sym, psd_cf, \
-                          psd_amp, aperiodic_param, median_volt_amp, psd_bw_log))
+pac_features = np.hstack((pac_values, median_rd_sym, median_pt_sym, median_volt_amp, \
+                           aperiodic_param, psd_cf, psd_amp, psd_bw_log10))
 
 # scale data
 scaler = StandardScaler()
@@ -605,8 +581,8 @@ X_scaled = scaler.transform(pac_features)
 #%% PAC Scale data & PCA 
 
 
-feature_list = ['pac_values', 'median_rd_sym', 'median_pt_sym', 'psd_cf', \
-                'psd_amp', 'aperiodic_param', 'median_volt_amp', 'psd_bw_log']
+feature_list = ['pac_values', 'median_rd_sym', 'median_pt_sym', 'median_volt_amp', \
+                'aperiodic_param', 'psd_cf', 'psd_amp', 'psd_bw_log10']
 # scale data
 scaler = StandardScaler()
 scaler.fit(pac_features)
@@ -628,8 +604,7 @@ plt.ylabel("Second principal component")
 plt.matshow(pca.components_, cmap='viridis')
 plt.yticks([0, 1], ["First component", "Second component"])
 plt.colorbar()
-plt.xticks(range(len(feature_list)),
-feature_list, rotation=60, ha='left')
+plt.xticks(range(len(feature_list)),feature_list, rotation=60, ha='left')
 plt.xlabel("Feature")
 plt.ylabel("Principal components")
 
@@ -640,14 +615,13 @@ from sklearn.cluster import KMeans
 kmeans = KMeans(n_clusters=2)
 kmeans.fit(X_scaled)
 
+#%%
 # visualize on PCA  
-mglearn.discrete_scatter(X_pca[:, 0], X_pca[:, 1], kmeans.labels_, markers='o')
+mglearn.discrete_scatter(X_scaled[:, 0], X_scaled[:, 1], kmeans.labels_, markers='o')
 mglearn.discrete_scatter(kmeans.cluster_centers_[:, 0], kmeans.cluster_centers_[:, 1], [0, 1], markers='^', markeredgewidth=3)
 plt.title('K-Means: Plot clusters visualized on PCA\'s including center')
 plt.xlabel("First principal component")
 plt.ylabel("Second principal component")
-
-from sklearn.metrics.cluster import adjusted_rand_score
 
 #%% Agglomerative clustering
 

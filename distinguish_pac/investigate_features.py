@@ -615,13 +615,15 @@ from sklearn.cluster import KMeans
 kmeans = KMeans(n_clusters=2)
 kmeans.fit(X_scaled)
 
-#%%
 # visualize on PCA  
 mglearn.discrete_scatter(X_scaled[:, 0], X_scaled[:, 1], kmeans.labels_, markers='o')
 mglearn.discrete_scatter(kmeans.cluster_centers_[:, 0], kmeans.cluster_centers_[:, 1], [0, 1], markers='^', markeredgewidth=3)
 plt.title('K-Means: Plot clusters visualized on PCA\'s including center')
 plt.xlabel("First principal component")
 plt.ylabel("Second principal component")
+
+features_df['Clusters'] = kmeans.labels_
+cluster_label = kmeans.labels_
 
 #%% Agglomerative clustering
 
@@ -660,46 +662,188 @@ plt.xlabel("Feature 0")
 plt.ylabel("Feature 1")
 
 
+#%% Linear regression predicting pac_values in each cluster
+
+from sklearn.cluster import KMeans
+kmeans = KMeans(n_clusters=2)
+kmeans.fit(X_scaled)
+
+# or without PAC_values included
+# kmeans.fit(X_scaled[:,1:])
+
+# visualize on PCA  
+mglearn.discrete_scatter(X_pca[:, 0], X_pca[:, 1], kmeans.labels_, markers='o')
+mglearn.discrete_scatter(kmeans.cluster_centers_[:, 0], kmeans.cluster_centers_[:, 1], [0, 1], markers='^', markeredgewidth=3)
+plt.title('K-Means: Plot clusters visualized on PCA\'s including center')
+plt.xlabel("First principal component")
+plt.ylabel("Second principal component")
+
+features_df['Clusters'] = kmeans.labels_
+cluster_label = kmeans.labels_
+
+
+# which channels/data are in which cluster
+features_cluster0 = np.zeros([(cluster_label==0).sum(),len(X_scaled[0])])
+features_cluster1 = np.zeros([(cluster_label==1).sum(),len(X_scaled[0])])
+
+for ii in range(len(X_scaled[0])):
+    features_cluster0[:,ii] = [X_scaled[jj,ii] for jj in range(len(X_scaled)) if cluster_label[jj] == 0]
+    features_cluster1[:,ii] = [X_scaled[jj,ii] for jj in range(len(X_scaled)) if cluster_label[jj] == 1]
+    
+# get X and Y_hat (splits features into pac_value and other features)
+X_cluster0 = features_cluster0[:,1:]
+X_cluster1 = features_cluster1[:,1:]
+
+Y_cluster0 = features_cluster0[:,0]
+Y_cluster1 = features_cluster1[:,0]
 
 
 
+# regression fit
+reg_cluster0 = linear_model.LinearRegression().fit(X_cluster0, Y_cluster0)
+#print(reg_cluster0.coef_)
+reg_cluster1 = linear_model.LinearRegression().fit(X_cluster1, Y_cluster1)
+#print(reg_cluster1.coef_)
+
+
+# create plot
+#fig, ax = plt.subplots()
+plt.figure(figsize=(20,8))
+index = np.arange(7)
+bar_width = 0.25
+opacity = 0.8
+
+rects1 = plt.bar(index, reg_cluster0.coef_, bar_width,
+color='b',
+label='Cluster 0')
+
+rects2 = plt.bar(index + bar_width, reg_cluster1.coef_, bar_width,
+color='r',
+label='Cluster 1')
+
+beta_difference = abs(reg_cluster1.coef_ - reg_cluster0.coef_)
+
+rects3 = plt.bar(index + (bar_width * 2), beta_difference, bar_width,
+color='g',
+label='Difference')
+
+plt.xlabel('Feature')
+plt.ylabel('Beta Value',fontsize=16)
+plt.title('Linear regression: features on PAC-value',fontsize=16)
+plt.xticks(index + bar_width, feature_list[1:8],fontsize=16)
+plt.legend(fontsize=16)
+
+#plt.tight_layout()
+plt.show()
 
 
 
+# get differences in beta values
 
 
 
-#%% ML - Supervised
+#%%% Plot difference in features between NoPacs and PACs in histograms
+
+# manually set which columns you want to plot
+plot_list = [0,1,2,3,4,5,6,8,9]
 
 
-# Prediction: Rho value
-# Features: PT, RD, STD's, CF, BW
 
-# pac_rhos = np.reshape(pac_rhos, [len(pac_rhos), 1])
-psd_cf = np.reshape(psd_cf, [len(psd_cf), 1])
-psd_bw = np.reshape(psd_bw, [len(psd_bw), 1])
-median_pt_sym = np.reshape(median_pt_sym, [len(median_pt_sym), 1])
-median_rd_sym  = np.reshape(median_rd_sym, [len(median_rd_sym), 1])
-std_rd_sym  = np.reshape(std_rd_sym, [len(std_rd_sym), 1])
-std_pt_sym  = np.reshape(std_pt_sym, [len(std_rd_sym), 1])
-
-pac_rhos_binary = []
-for ii in range(len(pac_rhos)):
-    if pac_rhos[ii] > 0.1:
-        pac_rhos_binary_0 = 1
-    else: 
-        pac_rhos_binary_0 = 0
+plt.figure(figsize=(20,20))
+for ii in range(len(plot_list)): 
         
-    pac_rhos_binary.append(pac_rhos_binary_0)
-        
-pac_rhos_binary = np.reshape(pac_rhos_binary, [len(pac_rhos_binary)])
+    jj = plot_list[ii]
+    # subplots 2x5
+    plt.subplot(3,3,ii+1)
+    #xticks([]), yticks([])
+    plt.title(features_df.columns[jj])
+    plt.hist(features_df_nopac.iloc[:,jj], bins=20, alpha=.4)
+    plt.axvline(np.median(features_df_nopac.iloc[:,jj]), color='b', linestyle='dashed', linewidth=1)
+    
+    plt.hist(features_df.iloc[:,jj], bins=20, alpha=.4)
+    plt.axvline(np.median(features_df.iloc[:,jj]), color='r', linestyle='dashed', linewidth=1)
+    
 
-x_hat = np.hstack((median_pt_sym, median_rd_sym, std_pt_sym, std_rd_sym, psd_cf, psd_bw))
-y_hat = pac_rhos_binary
+#%% Linear regression beta values plotted that predict the Rho/Z-value
+### Including: cluster 0, cluster 1, and the NoPAC group
+    
 
-from sklearn.neighbors import KNeighborsClassifier
-knn = KNeighborsClassifier(n_neighbors=3)
-knn.fit(x_hat,y_hat)
+from sklearn.cluster import KMeans
+kmeans = KMeans(n_clusters=2)
+kmeans.fit(X_scaled)
 
-#%% ML - Unsupervised
-# first scale features
+# or without PAC_values included
+# kmeans.fit(X_scaled[:,1:])
+
+# visualize on PCA  
+mglearn.discrete_scatter(X_pca[:, 0], X_pca[:, 1], kmeans.labels_, markers='o')
+mglearn.discrete_scatter(kmeans.cluster_centers_[:, 0], kmeans.cluster_centers_[:, 1], [0, 1], markers='^', markeredgewidth=3)
+plt.title('K-Means: Plot clusters visualized on PCA\'s including center')
+plt.xlabel("First principal component")
+plt.ylabel("Second principal component")
+
+features_df['Clusters'] = kmeans.labels_
+cluster_label = kmeans.labels_
+
+
+# which channels/data are in which cluster
+features_cluster0 = np.zeros([(cluster_label==0).sum(),len(X_scaled[0])])
+features_cluster1 = np.zeros([(cluster_label==1).sum(),len(X_scaled[0])])
+
+for ii in range(len(X_scaled[0])):
+    features_cluster0[:,ii] = [X_scaled[jj,ii] for jj in range(len(X_scaled)) if cluster_label[jj] == 0]
+    features_cluster1[:,ii] = [X_scaled[jj,ii] for jj in range(len(X_scaled)) if cluster_label[jj] == 1]
+    
+# get X and Y_hat (splits features into pac_value and other features)
+X_cluster0 = features_cluster0[:,1:]
+X_cluster1 = features_cluster1[:,1:]
+
+Y_cluster0 = features_cluster0[:,0]
+Y_cluster1 = features_cluster1[:,0]
+
+
+
+# regression fit
+reg_cluster0 = linear_model.LinearRegression().fit(X_cluster0, Y_cluster0)
+#print(reg_cluster0.coef_)
+reg_cluster1 = linear_model.LinearRegression().fit(X_cluster1, Y_cluster1)
+#print(reg_cluster1.coef_)
+
+
+# get X_scaled_nopac
+X_nopac = X_scaled_nopac[:,1:]
+Y_nopac = X_scaled_nopac[:,0]
+
+# linear regression
+reg_nopac = linear_model.LinearRegression().fit(X_nopac, Y_nopac)
+
+
+# create plot
+#fig, ax = plt.subplots()
+plt.figure(figsize=(20,8))
+index = np.arange(7)
+bar_width = 0.25
+
+rects1 = plt.bar(index, reg_cluster0.coef_, bar_width,
+color='b',
+label='Cluster 0')
+
+rects2 = plt.bar(index + bar_width, reg_cluster1.coef_, bar_width,
+color='r',
+label='Cluster 1')
+
+
+rects3 = plt.bar(index + (bar_width * 2), reg_nopac.coef_, bar_width,
+color='g',
+label='No PAC')
+
+plt.xlabel('Feature')
+plt.ylabel('Beta Value',fontsize=16)
+plt.title('Linear regression: features on PAC-value',fontsize=16)
+plt.xticks(index + bar_width, feature_list[1:8],fontsize=16)
+plt.legend(fontsize=16)
+
+#plt.tight_layout()
+plt.show()
+
+

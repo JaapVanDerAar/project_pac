@@ -291,8 +291,8 @@ def resampled_pac_varphase(datastruct, amplitude_providing_band, fs, num_resampl
                 # which is as long as the number of resamples
                 roll_array = np.random.randint(0, len(data), size=num_resamples)
                 
-                resampled_pvalues_sample = []
-                resampled_rhovalues_sample = []
+                resampled_pvalues_sample = np.full(1000,np.nan)
+                resampled_rhovalues_sample = np.full(1000,np.nan)
              
                 # for every resample
                 for ii in range(len(roll_array)):
@@ -313,10 +313,10 @@ def resampled_pac_varphase(datastruct, amplitude_providing_band, fs, num_resampl
                     # calculate PAC
                     PAC_values = pacf.circle_corr(phase_data_angle, amp_data_abs)
                     
-                    resampled_pvalues_sample.append(PAC_values[1])
-                    resampled_rhovalues_sample.append(PAC_values[0])
+                    resampled_pvalues_sample[ii] = PAC_values[1]
+                    resampled_rhovalues_sample[ii] = PAC_values[0]
                     
-                resampled_pvalues_channel.append(resampled_pvalues_sample)
+                resampled_pvalues_channel[ii].append(resampled_pvalues_sample)
                 resampled_rhovalues_channel.append(resampled_rhovalues_sample)
            
                 print('this was ch', ch)
@@ -412,75 +412,3 @@ def fooof_highest_peak(datastruct, fs):
             
     return psd_peaks, backgr_params
 
-#%%
-    
-### TESTTESTTEST
-
-
-
-
-start = time.time()
-
-# initialze storing array
-psd_peaks = [[None]] * len(datastruct)
-backgr_params = [[None]] * len(datastruct)
-
-for subj in range(len(datastruct)):
-    
-    # initialize channel specific storage array
-    psd_peak_chs = [None] * len(datastruct[subj])
-    backgr_params_ch = [None] * len(datastruct[subj])
-    
-    for ch in range(len(datastruct[subj])):
-        
-        # get signal
-        sig = datastruct[subj][ch]
-        
-        # compute frequency spectrum
-        freq_mean, psd_mean = spectral.compute_spectrum(sig, fs, method='welch', avg_type='mean', nperseg=fs*2)
-     
-        # Set the frequency range upon which to fit FOOOF
-        freq_range = [4, 55]
-        bw_lims = [2, 8]
-        max_n_peaks = 4
-        
-        if sum(psd_mean) == 0: 
-            
-            peak_params = np.empty([0, 3])
-            
-            psd_peak_chs[ch] = peak_params
-            
-        else:
-            
-            # Initialize FOOOF model
-            fm = FOOOF(peak_width_limits=bw_lims, background_mode='knee', max_n_peaks=max_n_peaks)
-            
-            # fit model
-            fm.fit(freq_mean, psd_mean, freq_range) 
-            
-            # Central frequency, Amplitude, Bandwidth
-            peak_params = fm.peak_params_
-            
-            #offset, knee, slope
-            background_params = fm.background_params_
-            
-            if len(peak_params) > 0: 
-                
-                # find which peak has the biggest amplitude
-                max_ampl_idx = np.argmax(peak_params[:,1])
-                    
-                # define biggest peak in power spectrum and add to channel array
-                psd_peak_chs[ch] = peak_params[max_ampl_idx]
-            
-            elif len(peak_params) == 0:
-                
-                psd_peak_chs[ch] = peak_params
-            
-            backgr_params_ch[ch] = background_params
-                  
-                
-    psd_peaks[subj] = psd_peak_chs
-    backgr_params[subj] = backgr_params_ch
-    
-end = time.time()
-print(end - start)

@@ -300,14 +300,14 @@ pac_true_pvals = []
 pac_true_presence = []
 
 # for every subj
-for subj in range(len(resampled_rhovalues_small)):
+for subj in range(len(resampled_rhovalues)):
     
     pac_true_zvals_ch = []
     pac_true_pvals_ch = []
     pac_true_presence_ch = []
     
     # for every channel
-    for ch in range(len(resampled_rhovalues_small[subj])):
+    for ch in range(len(resampled_rhovalues[subj])):
         
         pac_true_zvals_ep = np.full(5,np.nan)
         pac_true_pvals_ep = np.full(5,np.nan)
@@ -315,8 +315,8 @@ for subj in range(len(resampled_rhovalues_small)):
          
         for ep in range(num_epochs):
         
-            true_z = (pac_rhos[subj][ch][ep] - np.mean(resampled_rhovalues_small[subj][ch][ep]))  \
-                    / np.std(resampled_rhovalues_small[subj][ch][ep])
+            true_z = (pac_rhos[subj][ch][ep] - np.mean(resampled_rhovalues[subj][ch][ep]))  \
+                    / np.std(resampled_rhovalues[subj][ch][ep])
             p_value = scipy.stats.norm.sf(abs(true_z))
                 
             pac_true_pvals_ep[ep] = p_value
@@ -349,8 +349,8 @@ subj_idx = []
 ch_idx = []
 ep_idx = []    
 
-for subj in range(len(resampled_rhovalues_small)):
-    for ch in range(len(resampled_rhovalues_small[subj])):
+for subj in range(len(resampled_rhovalues)):
+    for ch in range(len(resampled_rhovalues[subj])):
         for ep in range(num_epochs):
             
             if ((pac_true_presence[subj][ch][ep] == 1) & \

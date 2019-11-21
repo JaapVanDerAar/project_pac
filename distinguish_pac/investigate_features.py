@@ -583,10 +583,6 @@ X_scaled = scaler.transform(pac_features)
 
 feature_list = ['pac_values', 'median_rd_sym', 'median_pt_sym', 'median_volt_amp', \
                 'aperiodic_param', 'psd_cf', 'psd_amp', 'psd_bw_log10']
-# scale data
-scaler = StandardScaler()
-scaler.fit(pac_features)
-X_scaled = scaler.transform(pac_features)
 
 # PCA
 pca = PCA(n_components=2)

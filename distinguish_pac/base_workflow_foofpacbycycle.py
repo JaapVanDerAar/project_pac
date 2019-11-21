@@ -14,7 +14,7 @@ os.chdir(r'C:\Users\jaapv\Desktop\master\VoytekLab\Code\distinguish_pac')
 #%% import self-defined modules
 
 import module_load_data as load_data
-#import module_pac_functions as pacf
+import module_pac_functions as pacf
 import module_detect_pac as detect_pac
 import module_pac_plots as pac_plt
 

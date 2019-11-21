@@ -224,9 +224,15 @@ for subj in range(len(datastruct)):
         
         for ep in range(num_epochs):
             
+            # if no peak, assign nan's 
+            if len(psd_peaks[subj][ch][ep]) == 0:
+            
+                resampled_pvalues_ep.append(np.full(num_resamples,np.nan))
+                resampled_rhovalues_ep.append(np.full(num_resamples,np.nan))      
+            
             
             # for every channel that has peaks
-            if len(psd_peaks[subj][ch][ep]) > 0:
+            elif len(psd_peaks[subj][ch][ep]) > 0:
             
                 # define phase providing band
                 CF = psd_peaks[subj][ch][ep][0]
@@ -265,6 +271,7 @@ for subj in range(len(datastruct)):
                     
                     resampled_pvalues_sample[ii] = PAC_values[1]
                     resampled_rhovalues_sample[ii] = PAC_values[0]
+                   
                     
                 resampled_pvalues_ep.append(resampled_pvalues_sample)
                 resampled_rhovalues_ep.append(resampled_rhovalues_sample)
@@ -274,7 +281,7 @@ for subj in range(len(datastruct)):
         resampled_rhovalues_ch.append(resampled_rhovalues_ep)                
         print('this was ch', ch)
         
-    
+        
     resampled_pvalues.append(resampled_pvalues_ch)
     resampled_rhovalues.append(resampled_rhovalues_ch)     
     
@@ -282,3 +289,190 @@ for subj in range(len(datastruct)):
 
 np.save('resampled_pvalues_20s', resampled_pvalues)
 np.save('resampled_rhovalues_20s', resampled_rhovalues)
+
+
+
+#%% Find the true PAC values 
+import scipy.io
+
+pac_true_zvals = []
+pac_true_pvals = []
+pac_true_presence = []
+
+# for every subj
+for subj in range(len(resampled_rhovalues_small)):
+    
+    pac_true_zvals_ch = []
+    pac_true_pvals_ch = []
+    pac_true_presence_ch = []
+    
+    # for every channel
+    for ch in range(len(resampled_rhovalues_small[subj])):
+        
+        pac_true_zvals_ep = np.full(5,np.nan)
+        pac_true_pvals_ep = np.full(5,np.nan)
+        pac_true_presence_ep = np.full(5,np.nan)
+         
+        for ep in range(num_epochs):
+        
+            true_z = (pac_rhos[subj][ch][ep] - np.mean(resampled_rhovalues_small[subj][ch][ep]))  \
+                    / np.std(resampled_rhovalues_small[subj][ch][ep])
+            p_value = scipy.stats.norm.sf(abs(true_z))
+                
+            pac_true_pvals_ep[ep] = p_value
+            pac_true_zvals_ep[ep] = true_z
+            
+            if true_z >= 0  and  p_value <= 0.05:
+    
+                pac_true_presence_ep[ep] = 1         
+                
+            else: 
+             
+                pac_true_presence_ep[ep] = 0 
+                
+         
+        pac_true_zvals_ch.append(pac_true_zvals_ep)
+        pac_true_pvals_ch.append(pac_true_pvals_ep)
+        pac_true_presence_ch.append(pac_true_presence_ep) 
+
+
+    pac_true_pvals.append(pac_true_pvals_ch) 
+    pac_true_zvals.append(pac_true_zvals_ch)
+    pac_true_presence.append(pac_true_presence_ch)
+
+
+#%% Now, we only select those channels that have a CF of < 15 Hz, 
+### and with an amplitude between .2 & 1.5
+### call these subj_idx and ch_idx and ep_idx
+   
+subj_idx = []
+ch_idx = []
+ep_idx = []    
+
+for subj in range(len(resampled_rhovalues_small)):
+    for ch in range(len(resampled_rhovalues_small[subj])):
+        for ep in range(num_epochs):
+            
+            if ((pac_true_presence[subj][ch][ep] == 1) & \
+                (psd_peaks[subj][ch][ep][0] < 15) & \
+                (psd_peaks[subj][ch][ep][1] > .2) & \
+                (psd_peaks[subj][ch][ep][1] < 1.5)):
+                                  
+                subj_idx.append(subj)
+                ch_idx.append(ch)
+                ep_idx.append(ep)
+
+
+#%% Loop over all channels with a CF of < 15 Hz, and with an AMP between .2 & 1.5
+### And extract and save the cycle-by-cycle features
+
+# create empty output
+rdsym = []
+ptsym = []
+bursts = []
+period = []
+volt_amp = []
+
+burst_kwargs = {'amplitude_fraction_threshold': 0.25,
+                'amplitude_consistency_threshold': .4,
+                'period_consistency_threshold': .45,
+                'monotonicity_threshold': .6,
+                'N_cycles_min': 3}
+
+# for every channel with pac
+for ii in range(len(subj_idx)):
+    
+    # get subj & ch
+    subj = subj_idx[ii]
+    ch = ch_idx[ii]
+    ep = ep_idx[ii]
+      
+    # get phase providing band
+    lower_phase = psd_peaks[subj][ch][ep][0] - (psd_peaks[subj][ch][ep][2] / 2)
+    upper_phase = psd_peaks[subj][ch][ep][0] + (psd_peaks[subj][ch][ep][2] / 2)
+    
+    fs = 1000
+    f_range = [lower_phase, upper_phase]
+    f_lowpass = 55
+    N_seconds = int(len(datastruct[subj][ch][(ep*fs*10):((ep+int((epoch_len/10)))*fs*10)]) / fs - 2)
+    
+    signal = lowpass_filter(datastruct[subj][ch][(ep*fs*10):((ep+int((epoch_len/10)))*fs*10)], fs, f_lowpass, N_seconds=N_seconds, remove_edge_artifacts=False)
+    
+    df = compute_features(signal, fs, f_range,  burst_detection_kwargs=burst_kwargs)
+    
+    is_burst = df['is_burst'].tolist()
+    time_rdsym = df['time_rdsym'].to_numpy()
+    time_ptsym = df['time_ptsym'].to_numpy()
+    period_ch = df['period'].to_numpy()
+    volt_amp_ch = df['volt_amp'].to_numpy()
+    
+    bursts.append(is_burst)
+    rdsym.append(time_rdsym)
+    ptsym.append(time_ptsym)
+    period.append(period_ch)
+    volt_amp.append(volt_amp_ch)
+
+                
+#%% 
+    
+clean_data = []
+clean_pac_rhos = []
+clean_resamp_zvals = []
+clean_resamp_pvals = []
+clean_psd_params = []
+clean_backgr_params = []
+
+
+for ii in range(len(subj_idx)):
+    
+    subj = subj_idx[ii]
+    ch = ch_idx[ii]
+    ep = ep_idx[ii]
+         
+    clean_data.append(datastruct[subj][ch][(ep*fs*10):((ep+int((epoch_len/10)))*fs*10)])
+    clean_pac_rhos.append(pac_rhos[subj][ch][ep])
+    clean_resamp_zvals.append(pac_true_zvals[subj][ch][ep])
+    clean_resamp_pvals.append(pac_true_pvals[subj][ch][ep]) 
+    clean_psd_params.append(psd_peaks[subj][ch][ep])
+    clean_backgr_params.append(backgr_params[subj][ch][ep])
+    
+    
+#%% Write to clean_db_20s
+    
+clean_db = {}
+
+# metadata
+clean_db['subj_name'] = subjects # list of initials of subjects (subjects)
+clean_db['subj'] = subj_idx # array of the subjects to which data belong (pac_idx[0])
+clean_db['ch'] = ch_idx # array of the channels to which data belong (pac_idx[1])
+clean_db['locs'] = elec_locs
+clean_db['dat_name'] = 'fixation_pwrlaw'
+clean_db['fs'] = 1000
+
+# data
+clean_db['data'] = clean_data# list of arrays of channels with PAC
+
+# analysis 
+clean_db['pac_rhos'] = clean_pac_rhos # now array, put in array with only sig PAC chs
+clean_db['resamp_zvals'] = clean_resamp_zvals # is now matrix, put in array with only sig PAC chs
+clean_db['resamp_pvals'] = clean_resamp_pvals # is now matrix, put in array with only sig PAC chs
+
+clean_db['psd_params'] = clean_psd_params # list of arrays,  put in array with only sig PAC chs
+clean_db['backgr_params'] = clean_backgr_params # list of arrays,  put in array with only sig PAC chs
+clean_db['rd_sym'] = rdsym # list of arrays,  put in array with only sig PAC chs
+clean_db['pt_sym'] = ptsym # list of arrays,  put in array with only sig PAC chs
+clean_db['bursts'] = bursts # list of arrays,  put in array with only sig PAC chs
+clean_db['period'] = period # list of arrays,  put in array with only sig PAC chs
+clean_db['volt_amp'] = volt_amp # list of arrays,  put in array with only sig PAC chs
+
+# Save with pickle
+import pickle
+
+save_data = open("clean_db_20s.pkl","wb")
+pickle.dump(clean_db,save_data)
+save_data.close()
+
+
+
+
+

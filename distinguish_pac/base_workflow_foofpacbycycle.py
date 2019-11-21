@@ -21,10 +21,6 @@ import module_pac_plots as pac_plt
 
 from bycycle.filt import lowpass_filter
 from bycycle.features import compute_features
-import matplotlib.pyplot as plt
-import module_pac_plots as pac_plt
-import module_pac_functions as pacf
-from scipy.signal import hilbert
 
 #%% Meta data
 

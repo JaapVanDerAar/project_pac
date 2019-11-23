@@ -10,7 +10,7 @@ import pandas as pd
 # change dir 
 os.chdir(r'C:\Users\jaapv\Desktop\master\VoytekLab')
 
-load_data = open('clean_db.pkl','rb')
+load_data = open('clean_db_20s.pkl','rb')
 clean_db = pickle.load(load_data)
 
 
@@ -612,7 +612,7 @@ kmeans = KMeans(n_clusters=2)
 kmeans.fit(X_scaled)
 
 # visualize on PCA  
-mglearn.discrete_scatter(X_scaled[:, 0], X_scaled[:, 1], kmeans.labels_, markers='o')
+mglearn.discrete_scatter(X_pca[:, 0], X_pca[:, 1], kmeans.labels_, markers='o')
 mglearn.discrete_scatter(kmeans.cluster_centers_[:, 0], kmeans.cluster_centers_[:, 1], [0, 1], markers='^', markeredgewidth=3)
 plt.title('K-Means: Plot clusters visualized on PCA\'s including center')
 plt.xlabel("First principal component")

@@ -1,13 +1,11 @@
+# This script is now written for the no_pac 20s conditions. Take out 20s for normal nopac
+
+
 #%% Import standard libraries
 import os
 import numpy as np
+#%% 
 
-
-#%% Import Voytek Lab libraries
-
-
-
-#%% Change directory to import necessary modules
 
 os.chdir(r'C:\Users\jaapv\Desktop\master\VoytekLab\Code\distinguish_pac')
 
@@ -45,13 +43,7 @@ timewindow = 100000/fs # 110800 is the length of shortest recording
 datastruct, elec_locs = load_data.load_data_timewindow(dat_name, subjects, fs, timewindow)
 
 
-#%% Save structure
-
-# np.save('datastruct_fpb', datastruct)
-
 #%% Calculate largest peak in PSD using FOOF
-
-
 
 from fooof import FOOOF
 from neurodsp import spectral
@@ -131,8 +123,7 @@ for subj in range(len(datastruct)):
                 
     psd_peaks.append(psd_peak_chs)
     backgr_params.append(backgr_params_ch)
-    
-    
+
 #%% Calculate presence of PAC
 
 amplitude_providing_band = [80, 125]; #80-125 Hz band
@@ -202,97 +193,13 @@ for subj in range(len(datastruct)):
             
     print('another one is done =), this was subj', subj)
     
+
+#%% Skip resampling, load in database
     
-#%% Run resampling
- 
-num_resamples = 1000
+os.chdir(r'C:\Users\jaapv\Desktop\master\VoytekLab')
 
-resampled_rhovalues = []
-resampled_pvalues = []
-
-# for every subject
-for subj in range(len(datastruct)):
-
-    # create datastructs on channel level to save resamples PAC values
-    resampled_pvalues_ch = []
-    resampled_rhovalues_ch = []
-    
-    # for every channel
-    for ch in range(len(datastruct[subj])):
-            
-        
-        resampled_pvalues_ep = []
-        resampled_rhovalues_ep = []
-        
-        for ep in range(num_epochs):
-            
-            # if no peak, assign nan's 
-            if len(psd_peaks[subj][ch][ep]) == 0:
-            
-                resampled_pvalues_ep.append(np.full(num_resamples,np.nan))
-                resampled_rhovalues_ep.append(np.full(num_resamples,np.nan))      
-            
-            
-            # for every channel that has peaks
-            elif len(psd_peaks[subj][ch][ep]) > 0:
-            
-                # define phase providing band
-                CF = psd_peaks[subj][ch][ep][0]
-                BW = psd_peaks[subj][ch][ep][2]
-                
-                phase_providing_band = [(CF - (BW/2)),  (CF + (BW/2))]
-            
-                # get data of that channel
-                data = datastruct[subj][ch][(ep*fs*10):((ep+int((epoch_len/10)))*fs*10)]
-                
-                # create array of random numbers between 0 and total samples 
-                # which is as long as the number of resamples
-                roll_array = np.random.randint(0, len(data), size=num_resamples)
-                
-                resampled_pvalues_sample = np.full(1000,np.nan)
-                resampled_rhovalues_sample = np.full(1000,np.nan)
-             
-                # for every resample
-                for ii in range(len(roll_array)):
-        
-                    # roll the phase data for a random amount 
-                    phase_data_roll = np.roll(data, roll_array[ii])
-                    
-                    #calculating phase of theta
-                    phase_data = pacf.butter_bandpass_filter(phase_data_roll, phase_providing_band[0], phase_providing_band[1], round(float(fs)));
-                    phase_data_hilbert = hilbert(phase_data);
-                    phase_data_angle = np.angle(phase_data_hilbert);
-                    
-                    #calculating amplitude envelope of high gamma
-                    amp_data = pacf.butter_bandpass_filter(data, amplitude_providing_band[0], amplitude_providing_band[1], round(float(fs)));
-                    amp_data_hilbert = hilbert(amp_data);
-                    amp_data_abs = abs(amp_data_hilbert);
-            
-                    # calculate PAC
-                    PAC_values = pacf.circle_corr(phase_data_angle, amp_data_abs)
-                    
-                    resampled_pvalues_sample[ii] = PAC_values[1]
-                    resampled_rhovalues_sample[ii] = PAC_values[0]
-                   
-                    
-                resampled_pvalues_ep.append(resampled_pvalues_sample)
-                resampled_rhovalues_ep.append(resampled_rhovalues_sample)
-        
-            
-        resampled_pvalues_ch.append(resampled_pvalues_ep)
-        resampled_rhovalues_ch.append(resampled_rhovalues_ep)                
-        print('this was ch', ch)
-        
-        
-    resampled_pvalues.append(resampled_pvalues_ch)
-    resampled_rhovalues.append(resampled_rhovalues_ch)     
-    
-    print('another one is done =), this was subj', subj)
-
-np.save('resampled_pvalues_20s', resampled_pvalues)
-np.save('resampled_rhovalues_20s', resampled_rhovalues)
-
-
+resampled_pvalues_20s = np.load('resampled_pvalues_20s.npy', allow_pickle=True)
+resampled_rhovalues_20s = np.load('resampled_rhovalues_20s.npy', allow_pickle=True)
 
 #%% Find the true PAC values 
 import scipy.io
@@ -302,14 +209,14 @@ pac_true_pvals = []
 pac_true_presence = []
 
 # for every subj
-for subj in range(len(resampled_rhovalues)):
+for subj in range(len(resampled_rhovalues_20s)):
     
     pac_true_zvals_ch = []
     pac_true_pvals_ch = []
     pac_true_presence_ch = []
     
     # for every channel
-    for ch in range(len(resampled_rhovalues[subj])):
+    for ch in range(len(resampled_rhovalues_20s[subj])):
         
         pac_true_zvals_ep = np.full(5,np.nan)
         pac_true_pvals_ep = np.full(5,np.nan)
@@ -317,8 +224,8 @@ for subj in range(len(resampled_rhovalues)):
          
         for ep in range(num_epochs):
         
-            true_z = (pac_rhos[subj][ch][ep] - np.mean(resampled_rhovalues[subj][ch][ep]))  \
-                    / np.std(resampled_rhovalues[subj][ch][ep])
+            true_z = (pac_rhos[subj][ch][ep] - np.mean(resampled_rhovalues_20s[subj][ch][ep]))  \
+                    / np.std(resampled_rhovalues_20s[subj][ch][ep])
             p_value = scipy.stats.norm.sf(abs(true_z))
                 
             pac_true_pvals_ep[ep] = p_value
@@ -342,22 +249,20 @@ for subj in range(len(resampled_rhovalues)):
     pac_true_zvals.append(pac_true_zvals_ch)
     pac_true_presence.append(pac_true_presence_ch)
 
-
-#%% Now, we only select those channels that have a CF of < 15 Hz, 
-### and with an amplitude between .2 & 1.5
-### call these subj_idx and ch_idx and ep_idx
-   
+#%% Select all channels with a true oscillation < 15 Hz but 
+### without PAC after resampling
+    
 subj_idx = []
 ch_idx = []
 ep_idx = []    
 
-for subj in range(len(resampled_rhovalues)):
-    for ch in range(len(resampled_rhovalues[subj])):
+for subj in range(len(resampled_rhovalues_20s)):
+    for ch in range(len(resampled_rhovalues_20s[subj])):
         for ep in range(num_epochs):
            
             if len(psd_peaks[subj][ch][ep]) > 0: 
                 
-                if ((pac_true_presence[subj][ch][ep] == 1) & \
+                if ((pac_true_presence[subj][ch][ep] == 0) & \
                     (psd_peaks[subj][ch][ep][0] < 15) & \
                     (psd_peaks[subj][ch][ep][1] > .2) & \
                     (psd_peaks[subj][ch][ep][1] < 1.5)):
@@ -366,8 +271,8 @@ for subj in range(len(resampled_rhovalues)):
                     ch_idx.append(ch)
                     ep_idx.append(ep)
 
-
 #%% Loop over all channels with a CF of < 15 Hz, and with an AMP between .2 & 1.5
+### But without significant PAC
 ### And extract and save the cycle-by-cycle features
 
 # create empty output
@@ -416,7 +321,7 @@ for ii in range(len(subj_idx)):
     period.append(period_ch)
     volt_amp.append(volt_amp_ch)
 
-                
+    
 #%% 
     
 clean_data = []
@@ -473,11 +378,9 @@ clean_db['volt_amp'] = volt_amp # list of arrays,  put in array with only sig PA
 # Save with pickle
 import pickle
 
-save_data = open("clean_db_20s.pkl","wb")
+save_data = open("clean_db_nopac_20s.pkl","wb")
 pickle.dump(clean_db,save_data)
 save_data.close()
-
-
 
 
 

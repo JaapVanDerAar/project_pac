@@ -1,18 +1,24 @@
+
+
 #%%  EXAMPLE 1:  Sawtooth with changing sharp edge.
 
+import os
 os.chdir(r'C:\Users\jaapv\Desktop\master\VoytekLab')
 
 
 # imports
 from scipy import signal
 import numpy as np
-import module_pac_functions as pacf
 from scipy.signal import hilbert
-import module_detect_pac as detect_pac
 from neurodsp import spectral
 from fooof import FOOOF
 from neurodsp.plts.spectral import plot_power_spectra
 import matplotlib.pyplot as plt
+
+os.chdir(r'C:\Users\jaapv\Desktop\master\VoytekLab\Code\distinguish_pac')
+import module_pac_functions as pacf
+import module_detect_pac as detect_pac
+
 
 #%% Create sawtooth shaped data
 
@@ -117,9 +123,9 @@ for hello in range(0,400):
     sig.extend(seed1)
 
 
-sig = sig + 0.1*np.random.normal(0, 1, np.shape(sig));
+sig = sig + 0.1*np.random.normal(-2, 2, np.shape(sig));
     
-#%% Calculate bands   
+# Calculate bands   
     
 phase_providing_band = [4,8]
 amplitude_providing_band = [40,100]
@@ -136,7 +142,7 @@ amp_data_abs = abs(amp_data_hilbert);
     
     
   
-#%% Plot
+# Plot
 
 plt.figure(figsize = (20,8));
 plt.plot((sig[plt_time[0]:plt_time[1]]),label= 'Raw Signal')

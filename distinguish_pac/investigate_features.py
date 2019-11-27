@@ -10,7 +10,7 @@ import pandas as pd
 # change dir 
 os.chdir(r'C:\Users\jaapv\Desktop\master\VoytekLab')
 
-load_data = open('clean_db_20s.pkl','rb')
+load_data = open('clean_db.pkl','rb')
 clean_db = pickle.load(load_data)
 
 

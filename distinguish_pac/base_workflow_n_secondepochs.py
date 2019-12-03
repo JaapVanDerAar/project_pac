@@ -14,7 +14,7 @@ os.chdir(r'C:\Users\jaapv\Desktop\master\VoytekLab\Code\distinguish_pac')
 #%% import self-defined modules
 
 import module_load_data as load_data
-#import module_pac_functions as pacf
+import module_pac_functions as pacf
 import module_detect_pac as detect_pac
 import module_pac_plots as pac_plt
 
@@ -134,6 +134,9 @@ for subj in range(len(datastruct)):
     
     
 #%% Calculate presence of PAC
+
+from scipy.signal import hilbert
+
 
 amplitude_providing_band = [80, 125]; #80-125 Hz band
 

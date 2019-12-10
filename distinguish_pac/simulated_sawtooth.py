@@ -43,7 +43,22 @@ fs = 1000
 
 fig = plt.figure(figsize=(20,8))
 plt.plot(sig[plt_time[0]:plt_time[1]])
+
+#%%
+# 3 polycoherence
+from polycoherence import _plot_signal, polycoherence, plot_polycoherence
+from math import pi
+from scipy.fftpack import next_fast_len
  
+# plot biocoherence 
+#sig = sig[plt_time[0]:plt_time[1]]
+nn = len(sig)
+t = np.linspace(0, 100, nn)
+kw = dict(nperseg=nn // 10, noverlap=nn // 20, nfft=next_fast_len(nn // 2))
+
+freq1, freq2, bicoh = polycoherence(sig, fs, flim1=(40, 80), flim2=(3, 18), **kw)
+plot_polycoherence(freq1, freq2, bicoh)
+plt.show()
 #%% Get amplitude and phase data
 phase_providing_band = [4,8]
 amplitude_providing_band = [40,100]
@@ -67,6 +82,7 @@ plt.plot((phase_data_hilbert[plt_time[0]:plt_time[1]]),label= 'Phase [{0:.2f} - 
 plt.plot((amp_data_abs[plt_time[0]:plt_time[1]]),label= 'Amplitude Envelope')
 plt.plot((phase_data_angle[plt_time[0]:plt_time[1]]*0.1),label= 'Phase Angle')
 plt.legend(loc='center left', bbox_to_anchor=(1, 0.5))
+
 
 #%% 
 
@@ -183,8 +199,9 @@ N_seconds = len(sig) / fs - 2
 
 signal = lowpass_filter(sig, fs, f_lowpass, N_seconds=N_seconds, remove_edge_artifacts=False)
 
-plt.plot(signal[0:1500])
+plt.plot(sig[0:1500])
 plt.show()
 df = compute_features(signal, fs, f_range)
  
 plt.scatter(df.time_ptsym, df.time_rdsym)
+

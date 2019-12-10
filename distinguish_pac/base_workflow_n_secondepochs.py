@@ -82,14 +82,14 @@ for subj in range(len(datastruct)):
         
             
             # get signal
-            sig = datastruct[subj][ch][(ep*fs*10):((ep+int((epoch_len/10)))*fs*10)]
+            sig = datastruct[subj][ch][(ep*fs*epoch_len):((ep*fs*epoch_len)+fs*epoch_len)]
             
             # compute frequency spectrum
             freq_mean, psd_mean = spectral.compute_spectrum(sig, fs, method='welch', avg_type='mean', nperseg=fs*2)
          
             # Set the frequency range upon which to fit FOOOF
-            freq_range = [4, 55]
-            bw_lims = [2, 8]
+            freq_range = [4, 58]
+            bw_lims = [2, 6]
             max_n_peaks = 4
             
             if sum(psd_mean) == 0: 
@@ -138,7 +138,7 @@ for subj in range(len(datastruct)):
 from scipy.signal import hilbert
 
 
-amplitude_providing_band = [80, 125]; #80-125 Hz band
+amplitude_providing_band = [62, 100]; #80-125 Hz band
 
  # create output matrix of 20 * 64 (subj * max channels)
 pac_presence = []
@@ -170,7 +170,7 @@ for subj in range(len(datastruct)):
                 
                 phase_providing_band= [(CF - (BW/2)),  (CF + (BW/2))]
                 
-                data = datastruct[subj][ch][(ep*fs*10):((ep+int((epoch_len/10)))*fs*10)]
+                data =  datastruct[subj][ch][(ep*fs*epoch_len):((ep*fs*epoch_len)+fs*epoch_len)]
                 
                 #calculating phase of theta
                 phase_data = pacf.butter_bandpass_filter(data, phase_providing_band[0], phase_providing_band[1], round(float(fs)));
@@ -246,7 +246,7 @@ for subj in range(len(datastruct)):
                 phase_providing_band = [(CF - (BW/2)),  (CF + (BW/2))]
             
                 # get data of that channel
-                data = datastruct[subj][ch][(ep*fs*10):((ep+int((epoch_len/10)))*fs*10)]
+                data = datastruct[subj][ch][(ep*fs*epoch_len):((ep*fs*epoch_len)+fs*epoch_len)]
                 
                 # create array of random numbers between 0 and total samples 
                 # which is as long as the number of resamples
@@ -401,9 +401,9 @@ for ii in range(len(subj_idx)):
     fs = 1000
     f_range = [lower_phase, upper_phase]
     f_lowpass = 55
-    N_seconds = int(len(datastruct[subj][ch][(ep*fs*10):((ep+int((epoch_len/10)))*fs*10)]) / fs - 2)
+    N_seconds = len(datastruct[subj][ch]) / fs / num_epochs - 2
     
-    signal = lowpass_filter(datastruct[subj][ch][(ep*fs*10):((ep+int((epoch_len/10)))*fs*10)], fs, f_lowpass, N_seconds=N_seconds, remove_edge_artifacts=False)
+    signal = lowpass_filter(datastruct[subj][ch][(ep*fs*epoch_len):((ep*fs*epoch_len)+fs*epoch_len)], fs, f_lowpass, N_seconds=N_seconds, remove_edge_artifacts=False)
     
     df = compute_features(signal, fs, f_range,  burst_detection_kwargs=burst_kwargs)
     
@@ -436,7 +436,7 @@ for ii in range(len(subj_idx)):
     ch = ch_idx[ii]
     ep = ep_idx[ii]
          
-    clean_data.append(datastruct[subj][ch][(ep*fs*10):((ep+int((epoch_len/10)))*fs*10)])
+    clean_data.append( datastruct[subj][ch][(ep*fs*epoch_len):((ep*fs*epoch_len)+fs*epoch_len)])
     clean_pac_rhos.append(pac_rhos[subj][ch][ep])
     clean_resamp_zvals.append(pac_true_zvals[subj][ch][ep])
     clean_resamp_pvals.append(pac_true_pvals[subj][ch][ep]) 
@@ -476,7 +476,7 @@ clean_db['volt_amp'] = volt_amp # list of arrays,  put in array with only sig PA
 # Save with pickle
 import pickle
 
-save_data = open("clean_db_20s.pkl","wb")
+save_data = open("clean_db_20s_2.pkl","wb")
 pickle.dump(clean_db,save_data)
 save_data.close()
 

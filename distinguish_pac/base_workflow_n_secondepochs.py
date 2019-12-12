@@ -88,9 +88,9 @@ for subj in range(len(datastruct)):
             freq_mean, psd_mean = spectral.compute_spectrum(sig, fs, method='welch', avg_type='mean', nperseg=fs*2)
          
             # Set the frequency range upon which to fit FOOOF
-            freq_range = [4, 58]
+            freq_range = [4, 178]
             bw_lims = [2, 6]
-            max_n_peaks = 4
+            max_n_peaks = 10
             
             if sum(psd_mean) == 0: 
                 
@@ -479,8 +479,6 @@ import pickle
 save_data = open("clean_db_20s_2.pkl","wb")
 pickle.dump(clean_db,save_data)
 save_data.close()
-
-
 
 
 

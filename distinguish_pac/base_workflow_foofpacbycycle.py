@@ -111,23 +111,25 @@ features_df['exp_long'] = [backgr_params_long[features_df['subj'][ii]][features_
     
 amplitude_providing_band = [62, 118]; #80-125 Hz band as original
 
-pac_presence, pac_pvals, pac_rhos = detect_pac.cal_pac_values_varphase(datastruct, amplitude_providing_band, fs, psd_peaks)
+features_df = detect_pac.cal_pac_values_varphase(datastruct, amplitude_providing_band, fs, features_df)
 
 #%% How many channels have PAC when channels are NOT resampled?
 
-array_size = np.size(pac_presence) 
-nan_count = np.isnan(pac_presence).sum().sum()
-pp = (pac_presence == 1).sum().sum()
-percentage_pac = pp / (array_size - nan_count) * 100
-print('in ', percentage_pac, 'channels is PAC (unresampled)')
+perc = features_df['pac_presence'][features_df['pac_presence'] == 1].sum()/ \
+        len(features_df['pac_presence'])
+
+print('in ', perc * 100, 'channels is PAC (unresampled)')
 
 
 #%% Run resampling with variable phase and for full time frame of data
 
+# to ensure it does not give warnings when we change a specific value
+# in a specific column 
+pd.options.mode.chained_assignment = None
 
 num_resamples = 1000
 
-resamp_rho_varphase, resamp_p_varphase = detect_pac.resampled_pac_varphase(datastruct, amplitude_providing_band, fs, num_resamples, psd_peaks)
+features_df = detect_pac.resampled_pac_varphase(datastruct, amplitude_providing_band, fs, num_resamples, features_df)
 
 
 #%% Calculate true PAC values (by comparing rho value to resampled rho values, 

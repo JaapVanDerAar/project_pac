@@ -183,7 +183,7 @@ def true_pac_values(pac_rhos, resamp_rho):
        
 #%%  Calculate PAC - but phase providing band is variabel
 
-def cal_pac_values_varphase(datastruct, amplitude_providing_band, fs, psd_peaks):
+def cal_pac_values_varphase(datastruct, amplitude_providing_band, fs, features_df):
     """ iterates over all subjects and channels, calculates the PAC and results in dataframe
     Same function as cal_pac_values but:
         with a variable phase providing band
@@ -192,62 +192,62 @@ def cal_pac_values_varphase(datastruct, amplitude_providing_band, fs, psd_peaks)
     Inputs:
     -   Datastruct [subj * channels * data ] in numpy arrays
     -   Amplitude frequency band
-    -   PSD peak array with CF and BW
-    -   Sampling Frequency"""    
+    -   Sampling Frequency  
+    -   Features df
     
-    # create output matrix of 20 * 64 (subj * max channels)
-    pac_presence = pd.DataFrame(np.nan, index=range(len(datastruct)), columns=range(64))
-    pac_pvals = pd.DataFrame(np.nan, index=range(len(datastruct)), columns=range(64))
-    pac_rhos = pd.DataFrame(np.nan, index=range(len(datastruct)), columns=range(64))
+    """  
+    
+    # create output columns
+    features_df['pac_presence']  = np.int64
+    features_df['pac_pvals'] = np.nan
+    features_df['pac_rhos']  = np.nan
 
-    # for every subject
-    for subj in range(len(datastruct)):
+    for ii in range(len(features_df)):
+            
+        # for every channel that has peaks
+        if ~np.isnan(features_df['CF'][ii]):
         
-        # for every channel
-        for ch in range(len(datastruct[subj])):
+            # define phase providing band
+            CF = features_df['CF'][ii]
+            BW = features_df['BW'][ii]
             
-            # for every channel that has peaks
-            if len(psd_peaks[subj][ch]) > 0:
+            phase_providing_band= [(CF - (BW/2)),  (CF + (BW/2))]
             
-                # define phase providing band
-                CF = psd_peaks[subj][ch][0]
-                BW = psd_peaks[subj][ch][2]
-                
-                phase_providing_band= [(CF - (BW/2)),  (CF + (BW/2))]
-                
-                data = datastruct[subj][ch] 
-                
-                #calculating phase of theta
-                phase_data = pacf.butter_bandpass_filter(data, phase_providing_band[0], phase_providing_band[1], round(float(fs)));
-                phase_data_hilbert = hilbert(phase_data);
-                phase_data_angle = np.angle(phase_data_hilbert);
-                
-                #calculating amplitude envelope of high gamma
-                amp_data = pacf.butter_bandpass_filter(data, amplitude_providing_band[0], amplitude_providing_band[1], round(float(fs)));
-                amp_data_hilbert = hilbert(amp_data);
-                amp_data_abs = abs(amp_data_hilbert);
-                
-                
-                PAC_values = pacf.circle_corr(phase_data_angle, amp_data_abs)
+            subj = features_df['subj'][ii]
+            ch = features_df['ch'][ii]
+            data = datastruct[subj][ch] 
             
-                if PAC_values[1] <= 0.05:
-                    
-                    pac_presence[ch][subj] = 1
-                    
-                elif PAC_values[1] > 0.05: 
+            #calculating phase of theta
+            phase_data = pacf.butter_bandpass_filter(data, phase_providing_band[0], phase_providing_band[1], round(float(fs)));
+            phase_data_hilbert = hilbert(phase_data);
+            phase_data_angle = np.angle(phase_data_hilbert);
+            
+            #calculating amplitude envelope of high gamma
+            amp_data = pacf.butter_bandpass_filter(data, amplitude_providing_band[0], amplitude_providing_band[1], round(float(fs)));
+            amp_data_hilbert = hilbert(amp_data);
+            amp_data_abs = abs(amp_data_hilbert);
+            
+            
+            PAC_values = pacf.circle_corr(phase_data_angle, amp_data_abs)
         
-                    pac_presence[ch][subj] = 0
-                    
-                pac_pvals[ch][subj] = PAC_values[1]
-                pac_rhos[ch][subj] = PAC_values[0]
+            if PAC_values[1] <= 0.05:
                 
-        print('another one is done =), this was subj', subj)
+                features_df['pac_presence'][ii] = 1
+                
+            elif PAC_values[1] > 0.05: 
     
-    return pac_presence, pac_pvals, pac_rhos
+                features_df['pac_presence'][ii] = 0
+                
+            features_df['pac_pvals'][ii] = PAC_values[1]
+            features_df['pac_rhos'][ii] = PAC_values[0]
+                
+            print('another one is done =), this was channel', ch)
+    
+    return features_df
 
 #%% Calculate resampled Rho values - with phase frequency variable
     
-def resampled_pac_varphase(datastruct, amplitude_providing_band, fs, num_resamples, psd_peaks):
+def resampled_pac_varphase(datastruct, amplitude_providing_band, fs, num_resamples, features_df):
     """
     This function calculated the 'true' PAC by resampling data 1000 times, 
     calculating the rho values for every resample, whereafter the true p-value 
@@ -264,78 +264,86 @@ def resampled_pac_varphase(datastruct, amplitude_providing_band, fs, num_resampl
         Resamples p values
     
     """
-    resampled_rhovalues_subjlevel = []
-    resampled_pvalues_subjlevel = []
+    # create output columns
+    features_df['resamp_pac_presence']  = np.int64
+    features_df['resamp_pac_pvals'] = np.nan
+    features_df['resamp_pac_zvals']  = np.nan
     
-    # for every subject
-    for subj in range(len(datastruct)):
+    for ii in range(len(features_df)):
+        
+        # time it       
+        start = time.time()
+            
+       
+        # for every channel that has periodic peak
+        if ~np.isnan(features_df['CF'][ii]):
+        
+            # define phase providing band
+            CF = features_df['CF'][ii]
+            BW = features_df['BW'][ii]
+            
+            phase_providing_band= [(CF - (BW/2)),  (CF + (BW/2))]
+            
+            # get data
+            subj = features_df['subj'][ii]
+            ch = features_df['ch'][ii]
+            data = datastruct[subj][ch]
+
+            
+            # create array of random numbers between 0 and total samples 
+            # which is as long as the number of resamples
+            roll_array = np.random.randint(0, len(data), size=num_resamples)
+            
+            resampled_pvals = np.full(num_resamples,np.nan)
+            resampled_rhos = np.full(num_resamples,np.nan)
+         
+            # for every resample
+            for jj in range(len(roll_array)):
     
-        # create datastructs on channel level to save resamples PAC values
-        resampled_pvalues_channel = []
-        resampled_rhovalues_channel = []
-        
-        # for every channel
-        for ch in range(len(datastruct[subj])):
-            
-            # time it       
-            start = time.time()
+                # roll the phase data for a random amount 
+                phase_data_roll = np.roll(data, roll_array[jj])
                 
-           
-            # for every channel that has peaks
-            if len(psd_peaks[subj][ch]) > 0:
-            
-                # define phase providing band
-                CF = psd_peaks[subj][ch][0]
-                BW = psd_peaks[subj][ch][2]
+                #calculating phase of theta
+                phase_data = pacf.butter_bandpass_filter(phase_data_roll, phase_providing_band[0], phase_providing_band[1], round(float(fs)));
+                phase_data_hilbert = hilbert(phase_data);
+                phase_data_angle = np.angle(phase_data_hilbert);
                 
-                phase_providing_band = [(CF - (BW/2)),  (CF + (BW/2))]
-            
-                # get data of that channel
-                data = datastruct[subj][ch] 
+                #calculating amplitude envelope of high gamma
+                amp_data = pacf.butter_bandpass_filter(data, amplitude_providing_band[0], amplitude_providing_band[1], round(float(fs)));
+                amp_data_hilbert = hilbert(amp_data);
+                amp_data_abs = abs(amp_data_hilbert);
+        
+                # calculate PAC
+                PAC_values = pacf.circle_corr(phase_data_angle, amp_data_abs)
                 
-                # create array of random numbers between 0 and total samples 
-                # which is as long as the number of resamples
-                roll_array = np.random.randint(0, len(data), size=num_resamples)
-                
-                resampled_pvalues_sample = np.full(1000,np.nan)
-                resampled_rhovalues_sample = np.full(1000,np.nan)
-             
-                # for every resample
-                for ii in range(len(roll_array)):
-        
-                    # roll the phase data for a random amount 
-                    phase_data_roll = np.roll(data, roll_array[ii])
-                    
-                    #calculating phase of theta
-                    phase_data = pacf.butter_bandpass_filter(phase_data_roll, phase_providing_band[0], phase_providing_band[1], round(float(fs)));
-                    phase_data_hilbert = hilbert(phase_data);
-                    phase_data_angle = np.angle(phase_data_hilbert);
-                    
-                    #calculating amplitude envelope of high gamma
-                    amp_data = pacf.butter_bandpass_filter(data, amplitude_providing_band[0], amplitude_providing_band[1], round(float(fs)));
-                    amp_data_hilbert = hilbert(amp_data);
-                    amp_data_abs = abs(amp_data_hilbert);
+                resampled_pvals[jj] = PAC_values[1]
+                resampled_rhos[jj] = PAC_values[0]
             
-                    # calculate PAC
-                    PAC_values = pacf.circle_corr(phase_data_angle, amp_data_abs)
-                    
-                    resampled_pvalues_sample[ii] = PAC_values[1]
-                    resampled_rhovalues_sample[ii] = PAC_values[0]
-                    
-                resampled_pvalues_channel.append(resampled_pvalues_sample)
-                resampled_rhovalues_channel.append(resampled_rhovalues_sample)
-           
-                print('this was ch', ch)
+            # after rolling data and calculating 1000 rho and pac's 
+            # calculate the true values after resampling
+            true_z = (features_df['pac_rhos'][ii] - np.mean(resampled_rhos)) / np.std(resampled_rhos)
+            p_value = scipy.stats.norm.sf(abs(true_z))
+         
+            # write to dataframe
+            features_df['resamp_pac_pvals'][ii] = p_value
+            features_df['resamp_pac_zvals'][ii] = true_z
             
-                end = time.time()
-                print(end - start)   
-        
-        resampled_pvalues_subjlevel.append(resampled_pvalues_channel)
-        resampled_rhovalues_subjlevel.append(resampled_rhovalues_channel)     
-        
-        print('another one is done =), this was subj', subj)
+            # is it significant?
+            if true_z >= 0  and  p_value <= 0.05:
     
-    return resampled_rhovalues_subjlevel, resampled_pvalues_subjlevel
+                features_df['resamp_pac_presence'][ii] = 1         
+                
+            else: 
+            
+                features_df['resamp_pac_presence'][ii] = 0 
+            
+       
+            print('this was ch', ii)
+        
+            end = time.time()
+            print(end - start)   
+        
+    return features_df
         
 #%% Using FOOOF, select the biggest peak in the periodic power spectrum model
     
@@ -415,10 +423,10 @@ def fooof_highest_peak(datastruct, fs, freq_range, bw_lims, max_n_peaks, freq_ra
                     max_ampl_idx = np.argmax(peak_params[:,1])
                     
                     # find this peak hase the following characteristics:
-                    # 1) CF under 15 Hz
+                    # 1) CF under 30 Hz
                     # 2) Amp above .2
                     # 3) Amp under 1.5 (to get rid of artifact)
-                    if ((peak_params[max_ampl_idx][0] < 15) &  \
+                    if ((peak_params[max_ampl_idx][0] < 30) &  \
                         (peak_params[max_ampl_idx][1] >.2) &  \
                         (peak_params[max_ampl_idx][1] < 1.5)):
                         

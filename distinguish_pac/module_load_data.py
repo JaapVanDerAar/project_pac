@@ -2,8 +2,6 @@ import os
 import scipy.io as sio
 
 
-import time
-
         
 
 
@@ -58,9 +56,7 @@ def load_data_timewindow(dat_name, subjects, fs, timewindow):
     -   sampling frequency
     -   timewindow of which data to include
     """ 
-  
-    start = time.time()
-    print("hello")
+
     
     datastruct = [None] * len(subjects) 
     elec_locs = [None] * len(subjects)
@@ -90,8 +86,5 @@ def load_data_timewindow(dat_name, subjects, fs, timewindow):
         # save electrode locations        
         elec_locs[subj] = locs
        
-    
-    end = time.time()
-    print(end - start)    
 
     return datastruct, elec_locs

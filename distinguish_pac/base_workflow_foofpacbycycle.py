@@ -22,6 +22,8 @@ import module_pac_plots as pac_plt
 from bycycle.filt import lowpass_filter
 from bycycle.features import compute_features
 
+import pandas as pd
+
 #%% Meta data
 
 subjects = ['al','ca','cc','de','fp','gc','gf','gw',
@@ -36,7 +38,7 @@ dat_name = 'fixation_pwrlaw'
 
 fs = 1000
 
-timewindow = 110000/fs # 110800 is the length of shortest recording
+timewindow = 100000/fs # 110800 is the length of shortest recording
 
 #%% Run load data middle timewindow function
    
@@ -45,16 +47,69 @@ datastruct, elec_locs = load_data.load_data_timewindow(dat_name, subjects, fs, t
 
 #%% Save structure
 
-# np.save('datastruct_fpb', datastruct)
+np.save('datastruct_full', datastruct)
+np.save('elec_locs', elec_locs)
+
+
+#%% Create dataframe that will be used throughout
+
+# df = pd.DataFrame(np.nan, index=range(0,10), columns=['A'])
+
+# find length of subj * ch
+size = 0
+for subj in range(len(datastruct)): 
+    size = size + len(datastruct[subj])
+    
+# create dataframe with columns: subj & ch
+features_df = pd.DataFrame(index=range(0,size), columns=['subj', 'ch'])
+
+# fill subj & ch
+features_df['subj'] = [subj for subj in range(len(datastruct)) 
+                        for ch in range(len(datastruct[subj]))]
+features_df['ch'] = [ch for subj in range(len(datastruct)) 
+                        for ch in range(len(datastruct[subj]))]
+
 
 #%% Calculate largest peak in PSD using FOOF
 
-psd_peaks, backgr_params = detect_pac.fooof_highest_peak(datastruct, fs)
+# original is [4, 55], [2, 8], 4
+freq_range = [4, 55] # for peak detection
+bw_lims = [2, 6]
+max_n_peaks = 5
+freq_range_long = [4, 118] # to establish a more reliable slope
+
+psd_peaks, backgr_params, backgr_params_long = detect_pac.fooof_highest_peak(datastruct, fs, freq_range, bw_lims, max_n_peaks, freq_range_long)
+
+#%% Write FOOOF features to dataframe
+
+# periodic component
+features_df['CF'] = [psd_peaks[features_df['subj'][ii]][features_df['ch'][ii]][0]
+                    for ii in range(len(features_df))]
+features_df['Amp'] = [psd_peaks[features_df['subj'][ii]][features_df['ch'][ii]][1] 
+                    for ii in range(len(features_df))]
+features_df['BW'] = [psd_peaks[features_df['subj'][ii]][features_df['ch'][ii]][2] 
+                    for ii in range(len(features_df))]
+
+# aperiodic component
+features_df['offset'] = [backgr_params[features_df['subj'][ii]][features_df['ch'][ii]][0] 
+                    for ii in range(len(features_df))]
+features_df['knee'] = [backgr_params[features_df['subj'][ii]][features_df['ch'][ii]][1] 
+                    for ii in range(len(features_df))]
+features_df['exp'] = [backgr_params[features_df['subj'][ii]][features_df['ch'][ii]][2] 
+                    for ii in range(len(features_df))]
+
+# aperiodic component long frequency range
+features_df['offset_long'] = [backgr_params_long[features_df['subj'][ii]][features_df['ch'][ii]][0] 
+                    for ii in range(len(features_df))]
+features_df['knee_long'] = [backgr_params_long[features_df['subj'][ii]][features_df['ch'][ii]][1] 
+                    for ii in range(len(features_df))]
+features_df['exp_long'] = [backgr_params_long[features_df['subj'][ii]][features_df['ch'][ii]][2] 
+                    for ii in range(len(features_df))]
 
 
 #%% So now we have the peaks. Use those as input phase frequency for detecting PAC
     
-amplitude_providing_band = [80, 125]; #80-125 Hz band
+amplitude_providing_band = [62, 118]; #80-125 Hz band as original
 
 pac_presence, pac_pvals, pac_rhos = detect_pac.cal_pac_values_varphase(datastruct, amplitude_providing_band, fs, psd_peaks)
 
@@ -138,6 +193,7 @@ backgr_params = np.load('backgr_params.npy', allow_pickle=True)
 ### and with an amplitude between .2 & 1.5
 ### call these subj_idx and ch_idx and from now on DONT use pac_idx!
 
+# INTEGRATE IN THE FOOOF
 subj_idx = [pac_idx[0][ii]  \
             for ii in range(len(pac_idx[0]))  \
             if ((psd_peaks[pac_idx[0][ii]][pac_idx[1][ii]][0] < 15) &  \

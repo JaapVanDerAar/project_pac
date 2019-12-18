@@ -6,6 +6,8 @@ import scipy.io
 from fooof import FOOOF
 from neurodsp import spectral
 
+import time
+
 
 #%%  Calculate PAC
 
@@ -275,6 +277,10 @@ def resampled_pac_varphase(datastruct, amplitude_providing_band, fs, num_resampl
         # for every channel
         for ch in range(len(datastruct[subj])):
             
+            # time it       
+            start = time.time()
+                
+           
             # for every channel that has peaks
             if len(psd_peaks[subj][ch]) > 0:
             
@@ -316,11 +322,13 @@ def resampled_pac_varphase(datastruct, amplitude_providing_band, fs, num_resampl
                     resampled_pvalues_sample[ii] = PAC_values[1]
                     resampled_rhovalues_sample[ii] = PAC_values[0]
                     
-                resampled_pvalues_channel[ii].append(resampled_pvalues_sample)
+                resampled_pvalues_channel.append(resampled_pvalues_sample)
                 resampled_rhovalues_channel.append(resampled_rhovalues_sample)
            
                 print('this was ch', ch)
             
+                end = time.time()
+                print(end - start)   
         
         resampled_pvalues_subjlevel.append(resampled_pvalues_channel)
         resampled_rhovalues_subjlevel.append(resampled_rhovalues_channel)     
@@ -332,7 +340,7 @@ def resampled_pac_varphase(datastruct, amplitude_providing_band, fs, num_resampl
 #%% Using FOOOF, select the biggest peak in the periodic power spectrum model
     
 
-def fooof_highest_peak(datastruct, fs):
+def fooof_highest_peak(datastruct, fs, freq_range, bw_lims, max_n_peaks, freq_range_long):
     """
     This function is build on FOOOF and neuroDSP. It fits a model to the power 
     frequency spectrum, look for the biggest peak (in amplitude) and extracts 
@@ -341,9 +349,16 @@ def fooof_highest_peak(datastruct, fs):
     Inputs: 
         datastruct and fs
         
+        FOOOF parameters:
+        Frequency Range
+        Min and Max BW
+        Max # of Peaks  
+        Long frequency range
+        
     Outputs:
         Arrays of biggest peak characterics [CF, Ampl, BW]
         Array of background parameters [Exp, knee, offset]
+        Array of background parameters long [Exp, knee, offset]
     
     """
     
@@ -351,12 +366,14 @@ def fooof_highest_peak(datastruct, fs):
     # initialze storing array
     psd_peaks = []
     backgr_params = []
+    backgr_params_long = []
     
     for subj in range(len(datastruct)):
         
         # initialize channel specific storage array
         psd_peak_chs = []
         backgr_params_ch = []
+        backgr_params_long_ch = []
         
         for ch in range(len(datastruct[subj])):
             
@@ -365,17 +382,17 @@ def fooof_highest_peak(datastruct, fs):
             
             # compute frequency spectrum
             freq_mean, psd_mean = spectral.compute_spectrum(sig, fs, method='welch', avg_type='mean', nperseg=fs*2)
-         
-            # Set the frequency range upon which to fit FOOOF
-            freq_range = [4, 55]
-            bw_lims = [2, 8]
-            max_n_peaks = 4
             
+            # if dead channel
             if sum(psd_mean) == 0: 
                 
-                peak_params = np.empty([0, 3])
+                peak_params = np.array([np.nan, np.nan, np.nan])
+                background_params = np.array([np.nan, np.nan, np.nan])
+                background_params_long = np.array([np.nan, np.nan, np.nan])
                 
                 psd_peak_chs.append(peak_params)
+                backgr_params_ch.append(background_params)
+                backgr_params_long_ch.append(background_params_long)
                 
             else:
                 
@@ -390,25 +407,58 @@ def fooof_highest_peak(datastruct, fs):
                 
                 #offset, knee, slope
                 background_params = fm.background_params_
-                
+                    
+                # if peaks are found
                 if len(peak_params) > 0: 
                     
                     # find which peak has the biggest amplitude
                     max_ampl_idx = np.argmax(peak_params[:,1])
+                    
+                    # find this peak hase the following characteristics:
+                    # 1) CF under 15 Hz
+                    # 2) Amp above .2
+                    # 3) Amp under 1.5 (to get rid of artifact)
+                    if ((peak_params[max_ampl_idx][0] < 15) &  \
+                        (peak_params[max_ampl_idx][1] >.2) &  \
+                        (peak_params[max_ampl_idx][1] < 1.5)):
                         
-                    # define biggest peak in power spectrum and add to channel array
-                    psd_peak_chs.append(peak_params[max_ampl_idx])
-                
+                        # write it to channel array
+                        psd_peak_chs.append(peak_params[max_ampl_idx])
+                      
+                    # otherwise write empty
+                    else:   
+                        peak_params = np.array([np.nan, np.nan, np.nan])
+                        psd_peak_chs.append(peak_params)
+                        
+                # if no peaks are found, write empty
                 elif len(peak_params) == 0:
                     
+                    # write empty
+                    peak_params = np.array([np.nan, np.nan, np.nan])
                     psd_peak_chs.append(peak_params)
                 
+                # add backgr parameters
                 backgr_params_ch.append(background_params)
+                
+                
+                # get the long frequency range aperiodic parameters 
+                # Initialize FOOOF model
+                fm = FOOOF(peak_width_limits=bw_lims, background_mode='knee', max_n_peaks=max_n_peaks)
+                
+                # fit model with long range
+                fm.fit(freq_mean, psd_mean, freq_range_long) 
+                
+                #offset, knee, slope of long range
+                background_params_long = fm.background_params_
+                
+                # add long background parameters
+                backgr_params_long_ch.append(background_params_long)
                       
                     
         psd_peaks.append(psd_peak_chs)
         backgr_params.append(backgr_params_ch)
+        backgr_params_long.append(backgr_params_long_ch)
         
             
-    return psd_peaks, backgr_params
+    return psd_peaks, backgr_params, backgr_params_long
 

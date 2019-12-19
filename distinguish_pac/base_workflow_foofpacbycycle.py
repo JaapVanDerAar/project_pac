@@ -121,7 +121,7 @@ perc = features_df['pac_presence'][features_df['pac_presence'] == 1].sum()/ \
 print('in ', perc * 100, 'channels is PAC (unresampled)')
 
 
-#%% Run resampling with variable phase and for full time frame of data
+#%% Run resampling with variable phase and calculate true Z-values of PACs
 
 # to ensure it does not give warnings when we change a specific value
 # in a specific column 
@@ -131,7 +131,7 @@ num_resamples = 1000
 
 features_df = detect_pac.resampled_pac_varphase(datastruct, amplitude_providing_band, fs, num_resamples, features_df)
 
-
+features_df.to_csv('features_df.csv', sep=',', index=False)
 #%% Calculate true PAC values (by comparing rho value to resampled rho values, 
 #   and assuming normal distribution, which seems like that)
 

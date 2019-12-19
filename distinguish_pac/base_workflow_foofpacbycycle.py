@@ -132,34 +132,16 @@ num_resamples = 1000
 features_df = detect_pac.resampled_pac_varphase(datastruct, amplitude_providing_band, fs, num_resamples, features_df)
 
 features_df.to_csv('features_df.csv', sep=',', index=False)
-#%% Calculate true PAC values (by comparing rho value to resampled rho values, 
-#   and assuming normal distribution, which seems like that)
-
-pac_true_zvals, pac_true_pvals, pac_true_presence = detect_pac.true_pac_values(pac_rhos, resamp_rho_varphase)
-
-pac_idx = list(np.where(pac_true_presence == 1))
 
 
-#%%
+#%% How many channels have PAC after resampling?
 
-# channel with PAC to plot
-ii = 1
+perc_resamp = features_df['resamp_pac_presence'][features_df['resamp_pac_presence'] == 1].sum()/ \
+        len(features_df['resamp_pac_presence'])
 
-# subj & ch
-subj = pac_idx[0][ii]
-ch = pac_idx[1][ii]
+print('in ', perc_resamp * 100, 'channels is PAC (resampled)')
 
-# compute phase band
-lower_phase = psd_peaks[subj][ch][0] - (psd_peaks[subj][ch][2] / 2)
-upper_phase = psd_peaks[subj][ch][0] + (psd_peaks[subj][ch][2] / 2)
-
-# parameters
-fs = 1000
-phase_providing_band = [lower_phase, upper_phase]; #4-8 Hz band
-amplitude_providing_band = [80, 125]; #80-125 Hz band
-
-
-pac_plt.plot_signal(datastruct, phase_providing_band, amplitude_providing_band, subj, ch, fs)
+# pac_idx = list(np.where(features_df['resamp_pac_presence'] == 1))
     
 #%% Load all data that where created above to start ByCycle
 
@@ -167,69 +149,16 @@ pac_plt.plot_signal(datastruct, phase_providing_band, amplitude_providing_band, 
 os.chdir(r'C:\Users\jaapv\Desktop\master\VoytekLab')
 
 # data
-datastruct = np.load('datastruct_fpb.npy', allow_pickle=True)
+datastruct = np.load('datastruct_full.npy', allow_pickle=True)
 elec_locs = np.load('elec_locs.npy', allow_pickle=True)
 
-subjects = ['al','ca','cc','de','fp','gc','gf','gw',
-          'h0','hh','jc','jm','jp','mv','rh','rr',
-          'ug','wc','wm','zt']
+# dataframe
+features_df = pd.read_csv('features_df.csv', sep=',')
 
-# resampled rho and p-values
-resamp_rho_varphase = np.load('resamp_rho_varphase.npy', allow_pickle=True) 
-resamp_p_varphase = np.load('resamp_p_varphase.npy', allow_pickle=True) 
+#%% Get bycycle features STILL SOME ATTENUATION PROBLEMS AND WRITE INTO FUNCTION
 
-# resampled statistics    
-pac_true_zvals = np.load('pac_true_zvals.npy')
-pac_true_pvals = np.load('pac_true_pvals.npy')
-pac_true_presence = np.load('pac_true_presence.npy')
-pac_idx = np.load('pac_idx.npy')
-pac_rhos = np.load('pac_rhos.npy')
-
-# FOOOF features
-psd_peaks = np.load('psd_peaks.npy', allow_pickle=True)
-backgr_params = np.load('backgr_params.npy', allow_pickle=True)
-
-
-
-#%% Now, we only select those channels that have a CF of < 15 Hz, 
-### and with an amplitude between .2 & 1.5
-### call these subj_idx and ch_idx and from now on DONT use pac_idx!
-
-# INTEGRATE IN THE FOOOF
-subj_idx = [pac_idx[0][ii]  \
-            for ii in range(len(pac_idx[0]))  \
-            if ((psd_peaks[pac_idx[0][ii]][pac_idx[1][ii]][0] < 15) &  \
-                (psd_peaks[pac_idx[0][ii]][pac_idx[1][ii]][1] >.2) &  \
-                (psd_peaks[pac_idx[0][ii]][pac_idx[1][ii]][1] < 1.5))]
-ch_idx = [pac_idx[1][ii]  \
-            for ii in range(len(pac_idx[1]))  \
-            if ((psd_peaks[pac_idx[0][ii]][pac_idx[1][ii]][0] < 15) &  \
-                (psd_peaks[pac_idx[0][ii]][pac_idx[1][ii]][1] >.2) &  \
-                (psd_peaks[pac_idx[0][ii]][pac_idx[1][ii]][1] < 1.5))]
-
-
-#%% Loop over all channels with a CF of < 15 Hz, and with an AMP between .2 & 1.5
-### And extract and save the cycle-by-cycle features
-
-# create empty output
-rdsym = []
-ptsym = []
-bursts = []
-period = []
-volt_amp = []
-
-
-#burst_kwargs = {'amplitude_fraction_threshold': 0,
-#                'amplitude_consistency_threshold': .2,
-#                'period_consistency_threshold': .45,
-#                'monotonicity_threshold': .7,
-#                'N_cycles_min': 3}
-#
-#burst_kwargs = {'amplitude_fraction_threshold': 0,
-#                'amplitude_consistency_threshold': .25,
-#                'period_consistency_threshold': .45,
-#                'monotonicity_threshold': .6,
-#                'N_cycles_min': 3}
+f_lowpass = 55
+N_seconds = timewindow - 2
 
 burst_kwargs = {'amplitude_fraction_threshold': 0.25,
                 'amplitude_consistency_threshold': .4,
@@ -237,37 +166,39 @@ burst_kwargs = {'amplitude_fraction_threshold': 0.25,
                 'monotonicity_threshold': .6,
                 'N_cycles_min': 3}
 
+features_df['volt_amp'] = np.nan
+features_df['rdsym']  = np.nan
+features_df['ptsym']  = np.nan
+
 # for every channel with pac
-for ii in range(len(subj_idx)):
+for ii in range(len(features_df)):
     
-    # get subj & ch
-    subj = subj_idx[ii]
-    ch = ch_idx[ii]
-      
-    # get phase providing band
-    lower_phase = psd_peaks[subj][ch][0] - (psd_peaks[subj][ch][2] / 2)
-    upper_phase = psd_peaks[subj][ch][0] + (psd_peaks[subj][ch][2] / 2)
+    # for every channel that has peaks
+    if ~np.isnan(features_df['CF'][ii]):
     
-    fs = 1000
-    f_range = [lower_phase, upper_phase]
-    f_lowpass = 55
-    N_seconds = len(datastruct[subj][ch]) / fs - 2
-    
-    signal = lowpass_filter(datastruct[subj][ch], fs, f_lowpass, N_seconds=N_seconds, remove_edge_artifacts=False)
-    
-    df = compute_features(signal, fs, f_range,  burst_detection_kwargs=burst_kwargs)
-    
-    is_burst = df['is_burst'].tolist()
-    time_rdsym = df['time_rdsym'].to_numpy()
-    time_ptsym = df['time_ptsym'].to_numpy()
-    period_ch = df['period'].to_numpy()
-    volt_amp_ch = df['volt_amp'].to_numpy()
-    
-    bursts.append(is_burst)
-    rdsym.append(time_rdsym)
-    ptsym.append(time_ptsym)
-    period.append(period_ch)
-    volt_amp.append(volt_amp_ch)
+        # define phase providing band
+        CF = features_df['CF'][ii]
+        BW = features_df['BW'][ii]
+        
+        phase_providing_band= [(CF - (BW/2)),  (CF + (BW/2))]
+        
+        subj = features_df['subj'][ii]
+        ch = features_df['ch'][ii]
+        data = datastruct[subj][ch] 
+        
+        signal = lowpass_filter(data, fs, f_lowpass, N_seconds=N_seconds, remove_edge_artifacts=False)
+        
+        bycycle_df = compute_features(signal, fs, phase_providing_band,  burst_detection_kwargs=burst_kwargs)
+        
+        features_df['volt_amp'][ii] = bycycle_df['volt_peak'].median()
+        features_df['rdsym'][ii] = bycycle_df['time_rdsym'].median()
+        features_df['ptsym'][ii] = bycycle_df['time_ptsym'].median()
+        
+        print('this was ch', ii)
+        
+        
+features_df.to_csv('features_df.csv', sep=',', index=False)
+
 
 #%% Load save ByCycle measures + index after picking channels with specific CF and Amp
         

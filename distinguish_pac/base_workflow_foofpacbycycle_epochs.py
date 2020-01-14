@@ -181,10 +181,10 @@ elec_locs = np.load('elec_locs.npy', allow_pickle=True)
 # dataframe
 features_df = pd.read_csv('features_df.csv', sep=',')
 
-#%% Get bycycle features STILL SOME ATTENUATION PROBLEMS AND WRITE INTO FUNCTION
+#%% Get bycycle features ATTENUATION PROBlEMS IN SOME CHANNELS
 
 f_lowpass = 55
-N_seconds = timewindow - 2
+N_seconds = timewindow / num_epochs - 2
 
 burst_kwargs = {'amplitude_fraction_threshold': 0.25,
                 'amplitude_consistency_threshold': .4,
@@ -210,7 +210,8 @@ for ii in range(len(features_df)):
         
         subj = features_df['subj'][ii]
         ch = features_df['ch'][ii]
-        data = datastruct[subj][ch] 
+        ep = features_df['ep'][ii]
+        data = datastruct[subj][ch][(ep*fs*epoch_len):((ep*fs*epoch_len)+fs*epoch_len)] 
         
         signal = lowpass_filter(data, fs, f_lowpass, N_seconds=N_seconds, remove_edge_artifacts=False)
         
@@ -225,210 +226,3 @@ for ii in range(len(features_df)):
         
 features_df.to_csv('features_df.csv', sep=',', index=False)
 
-
-#%% Load save ByCycle measures + index after picking channels with specific CF and Amp
-        
-#rdsym = np.load('rdsym.npy', allow_pickle=True)  
-#ptsym = np.load('ptsym.npy', allow_pickle=True)  
-#bursts = np.load('bursts.npy', allow_pickle=True)
-#subj_idx = np.load('subj_idx.npy', allow_pickle=True)
-#ch_idx = np.load('ch_idx.npy', allow_pickle=True)
-##   
-#np.save('rdsym', rdsym)
-#np.save('ptsym', ptsym)
-#np.save('bursts', bursts)   
-#np.save('subj_idx', subj_idx)     
-#np.save('ch_idx', ch_idx)     
-    
-#%% Also clean other data by using subj_idx and ch_idx
-
-clean_data = []
-clean_pac_rhos = []
-clean_resamp_zvals = []
-clean_resamp_pvals = []
-clean_psd_params = []
-clean_backgr_params = []
-
-
-for ii in range(len(subj_idx)):
-    
-    subj = subj_idx[ii]
-    ch = ch_idx[ii]
-    
-    clean_data.append(datastruct[subj][ch])
-    clean_pac_rhos.append(pac_rhos[subj][ch])
-    clean_resamp_zvals.append(pac_true_zvals[subj][ch])
-    clean_resamp_pvals.append(pac_true_pvals[subj][ch]) 
-    clean_psd_params.append(psd_peaks[subj][ch])
-    clean_backgr_params.append(backgr_params[subj][ch])
-    
-#%% Create database in dictonairy form
-    
-clean_db = {}
-
-# metadata
-clean_db['subj_name'] = subjects # list of initials of subjects (subjects)
-clean_db['subj'] = subj_idx # array of the subjects to which data belong (pac_idx[0])
-clean_db['ch'] = ch_idx # array of the channels to which data belong (pac_idx[1])
-clean_db['locs'] = elec_locs
-clean_db['dat_name'] = 'fixation_pwrlaw'
-clean_db['fs'] = 1000
-
-# data
-clean_db['data'] = clean_data# list of arrays of channels with PAC
-
-# analysis 
-clean_db['pac_rhos'] = clean_pac_rhos # now array, put in array with only sig PAC chs
-clean_db['resamp_zvals'] = clean_resamp_zvals # is now matrix, put in array with only sig PAC chs
-clean_db['resamp_pvals'] = clean_resamp_pvals # is now matrix, put in array with only sig PAC chs
-
-clean_db['psd_params'] = clean_psd_params # list of arrays,  put in array with only sig PAC chs
-clean_db['backgr_params'] = clean_backgr_params # list of arrays,  put in array with only sig PAC chs
-clean_db['rd_sym'] = rdsym # list of arrays,  put in array with only sig PAC chs
-clean_db['pt_sym'] = ptsym # list of arrays,  put in array with only sig PAC chs
-clean_db['bursts'] = bursts # list of arrays,  put in array with only sig PAC chs
-clean_db['period'] = period # list of arrays,  put in array with only sig PAC chs
-clean_db['volt_amp'] = volt_amp # list of arrays,  put in array with only sig PAC chs
-
-# Save with pickle
-import pickle
-
-save_data = open("clean_db.pkl","wb")
-pickle.dump(clean_db,save_data)
-save_data.close()
-
-
-#%% Select all channels with a true oscillation < 15 Hz but 
-### without PAC after resampling
-
-pac_idx_nopac = list(np.where(pac_true_presence == 0))
-
-subj_idx_nopac = []
-ch_idx_nopac = []
-
-for ii in range(len(pac_idx_nopac[0])):
-    if len(psd_peaks[pac_idx_nopac[0][ii]][pac_idx_nopac[1][ii]]) > 0:
-        if ((psd_peaks[pac_idx_nopac[0][ii]][pac_idx_nopac[1][ii]][0] < 15) &  \
-            (psd_peaks[pac_idx_nopac[0][ii]][pac_idx_nopac[1][ii]][1] >.2) &  \
-            (psd_peaks[pac_idx_nopac[0][ii]][pac_idx_nopac[1][ii]][1] < 1.5)): 
-            
-            subj_idx_nopac.append(pac_idx_nopac[0][ii])
-            ch_idx_nopac.append(pac_idx_nopac[1][ii])
-
-            
-    
-#%%
-            
-# create empty output
-rdsym = []
-ptsym = []
-bursts = []
-period = []
-volt_amp = []
-
-
-#burst_kwargs = {'amplitude_fraction_threshold': 0,
-#                'amplitude_consistency_threshold': .2,
-#                'period_consistency_threshold': .45,
-#                'monotonicity_threshold': .7,
-#                'N_cycles_min': 3}
-#
-#burst_kwargs = {'amplitude_fraction_threshold': 0,
-#                'amplitude_consistency_threshold': .25,
-#                'period_consistency_threshold': .45,
-#                'monotonicity_threshold': .6,
-#                'N_cycles_min': 3}
-
-burst_kwargs = {'amplitude_fraction_threshold': 0.25,
-                'amplitude_consistency_threshold': .4,
-                'period_consistency_threshold': .45,
-                'monotonicity_threshold': .6,
-                'N_cycles_min': 3}
-
-# for every channel with pac
-for ii in range(len(subj_idx_nopac)):
-    
-    # get subj & ch
-    subj = subj_idx_nopac[ii]
-    ch = ch_idx_nopac[ii]
-      
-    # get phase providing band
-    lower_phase = psd_peaks[subj][ch][0] - (psd_peaks[subj][ch][2] / 2)
-    upper_phase = psd_peaks[subj][ch][0] + (psd_peaks[subj][ch][2] / 2)
-    
-    fs = 1000
-    f_range = [lower_phase, upper_phase]
-    f_lowpass = 55
-    N_seconds = len(datastruct[subj][ch]) / fs - 2
-    
-    signal = lowpass_filter(datastruct[subj][ch], fs, f_lowpass, N_seconds=N_seconds, remove_edge_artifacts=False)
-    
-    df = compute_features(signal, fs, f_range,  burst_detection_kwargs=burst_kwargs)
-    
-    is_burst = df['is_burst'].tolist()
-    time_rdsym = df['time_rdsym'].to_numpy()
-    time_ptsym = df['time_ptsym'].to_numpy()
-    period_ch = df['period'].to_numpy()
-    volt_amp_ch = df['volt_amp'].to_numpy()
-    
-    bursts.append(is_burst)
-    rdsym.append(time_rdsym)
-    ptsym.append(time_ptsym)
-    period.append(period_ch)
-    volt_amp.append(volt_amp_ch)
-    
-#%%
-    
-clean_data = []
-clean_pac_rhos = []
-clean_resamp_zvals = []
-clean_resamp_pvals = []
-clean_psd_params = []
-clean_backgr_params = []
-
-
-for ii in range(len(subj_idx_nopac)):
-    
-    subj = subj_idx_nopac[ii]
-    ch = ch_idx_nopac[ii]
-    
-    clean_data.append(datastruct[subj][ch])
-    clean_pac_rhos.append(pac_rhos[subj][ch])
-    clean_resamp_zvals.append(pac_true_zvals[subj][ch])
-    clean_resamp_pvals.append(pac_true_pvals[subj][ch]) 
-    clean_psd_params.append(psd_peaks[subj][ch])
-    clean_backgr_params.append(backgr_params[subj][ch])
-
-#%% Save under clean_db_nopac    
-clean_db_nopac = {}
-
-# metadata
-clean_db_nopac['subj_name'] = subjects # list of initials of subjects (subjects)
-clean_db_nopac['subj'] = subj_idx_nopac # array of the subjects to which data belong (pac_idx[0])
-clean_db_nopac['ch'] = ch_idx_nopac # array of the channels to which data belong (pac_idx[1])
-clean_db_nopac['locs'] = elec_locs
-clean_db_nopac['dat_name'] = 'fixation_pwrlaw'
-clean_db_nopac['fs'] = 1000
-
-# data
-clean_db_nopac['data'] = clean_data# list of arrays of channels with PAC
-
-# analysis 
-clean_db_nopac['pac_rhos'] = clean_pac_rhos # now array, put in array with only sig PAC chs
-clean_db_nopac['resamp_zvals'] = clean_resamp_zvals # is now matrix, put in array with only sig PAC chs
-clean_db_nopac['resamp_pvals'] = clean_resamp_pvals # is now matrix, put in array with only sig PAC chs
-
-clean_db_nopac['psd_params'] = clean_psd_params # list of arrays,  put in array with only sig PAC chs
-clean_db_nopac['backgr_params'] = clean_backgr_params # list of arrays,  put in array with only sig PAC chs
-clean_db_nopac['rd_sym'] = rdsym # list of arrays,  put in array with only sig PAC chs
-clean_db_nopac['pt_sym'] = ptsym # list of arrays,  put in array with only sig PAC chs
-clean_db_nopac['bursts'] = bursts # list of arrays,  put in array with only sig PAC chs
-clean_db_nopac['period'] = period # list of arrays,  put in array with only sig PAC chs
-clean_db_nopac['volt_amp'] = volt_amp # list of arrays,  put in array with only sig PAC chs
-
-# Save with pickle
-import pickle
-
-save_data = open("clean_db_nopac.pkl","wb")
-pickle.dump(clean_db_nopac,save_data)
-save_data.close()

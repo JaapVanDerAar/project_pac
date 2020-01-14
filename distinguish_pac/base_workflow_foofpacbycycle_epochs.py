@@ -86,7 +86,7 @@ bw_lims = [2, 6]
 max_n_peaks = 5
 freq_range_long = [4, 118] # to establish a more reliable slope
 
-psd_peaks, backgr_params, backgr_params_long = detect_pac.fooof_highest_peak_epoch_4_12(datastruct, epoch_len, fs, freq_range, bw_lims, max_n_peaks, freq_range_long, features_df)
+features_df = detect_pac.fooof_highest_peak_epoch_4_12(datastruct, epoch_len, fs, freq_range, bw_lims, max_n_peaks, freq_range_long, features_df)
 
 #%% Write FOOOF features to dataframe
 
@@ -159,7 +159,7 @@ num_resamples = 1000
 
 features_df = detect_pac.resampled_pac_varphase(datastruct, amplitude_providing_band, fs, num_resamples, features_df, epoch_len)
 
-features_df.to_csv('features_df_epoch.csv', sep=',', index=False)
+features_df.to_csv('features_df_epoch_4_12.csv', sep=',', index=False)
 
 
 #%% How many channels have PAC after resampling?

@@ -183,7 +183,7 @@ def true_pac_values(pac_rhos, resamp_rho):
        
 #%%  Calculate PAC - but phase providing band is variabel
 
-def cal_pac_values_varphase(datastruct, amplitude_providing_band, fs, features_df):
+def cal_pac_values_varphase(datastruct, amplitude_providing_band, fs, features_df, epoch_len):
     """ iterates over all subjects and channels, calculates the PAC and results in dataframe
     Same function as cal_pac_values but:
         with a variable phase providing band
@@ -196,7 +196,7 @@ def cal_pac_values_varphase(datastruct, amplitude_providing_band, fs, features_d
     -   Features df
     
     """  
-    
+ 
     # create output columns
     features_df['pac_presence']  = np.int64
     features_df['pac_pvals'] = np.nan
@@ -215,7 +215,8 @@ def cal_pac_values_varphase(datastruct, amplitude_providing_band, fs, features_d
             
             subj = features_df['subj'][ii]
             ch = features_df['ch'][ii]
-            data = datastruct[subj][ch] 
+            ep = features_df['ep'][ii]
+            data = datastruct[subj][ch][(ep*fs*epoch_len):((ep*fs*epoch_len)+fs*epoch_len)]
             
             #calculating phase of theta
             phase_data = pacf.butter_bandpass_filter(data, phase_providing_band[0], phase_providing_band[1], round(float(fs)));
@@ -240,14 +241,12 @@ def cal_pac_values_varphase(datastruct, amplitude_providing_band, fs, features_d
                 
             features_df['pac_pvals'][ii] = PAC_values[1]
             features_df['pac_rhos'][ii] = PAC_values[0]
-                
-            print('another one is done =), this was channel', ch)
     
     return features_df
 
 #%% Calculate resampled Rho values - with phase frequency variable
     
-def resampled_pac_varphase(datastruct, amplitude_providing_band, fs, num_resamples, features_df):
+def resampled_pac_varphase(datastruct, amplitude_providing_band, fs, num_resamples, features_df, epoch_len):
     """
     This function calculated the 'true' PAC by resampling data 1000 times, 
     calculating the rho values for every resample, whereafter the true p-value 
@@ -287,7 +286,8 @@ def resampled_pac_varphase(datastruct, amplitude_providing_band, fs, num_resampl
             # get data
             subj = features_df['subj'][ii]
             ch = features_df['ch'][ii]
-            data = datastruct[subj][ch]
+            ep = features_df['ep'][ii]
+            data = datastruct[subj][ch][(ep*fs*epoch_len):((ep*fs*epoch_len)+fs*epoch_len)]
 
             
             # create array of random numbers between 0 and total samples 
@@ -470,3 +470,140 @@ def fooof_highest_peak(datastruct, fs, freq_range, bw_lims, max_n_peaks, freq_ra
             
     return psd_peaks, backgr_params, backgr_params_long
 
+#%% Using FOOOF, select the biggest peak in the periodic power spectrum model with epochs
+    
+
+def fooof_highest_peak_epoch(datastruct, epoch_len, fs, freq_range, bw_lims, max_n_peaks, freq_range_long):
+    """
+    This function is build on FOOOF and neuroDSP. It fits a model to the power 
+    frequency spectrum, look for the biggest peak (in amplitude) and extracts 
+    the characteristics of the peak
+    
+    Inputs: 
+        datastruct and fs
+        
+        FOOOF parameters:
+        Frequency Range
+        Min and Max BW
+        Max # of Peaks  
+        Long frequency range
+        
+    Outputs:
+        Arrays of biggest peak characterics [CF, Ampl, BW]
+        Array of background parameters [Exp, knee, offset]
+        Array of background parameters long [Exp, knee, offset]
+    
+    """
+    
+    num_epochs = int(len(datastruct[0][0]) / fs / epoch_len)
+    
+    # initialze storing array
+    psd_peaks = []
+    backgr_params = []
+    backgr_params_long = []
+    
+    for subj in range(len(datastruct)):
+        
+        # initialize channel specific storage array
+        psd_peak_chs = []
+        backgr_params_ch = []
+        backgr_params_long_ch = []
+        
+        for ch in range(len(datastruct[subj])):
+            
+            # initialize channel specific storage array
+            psd_peak_ep = []
+            backgr_params_ep = []
+            backgr_params_long_ep = [] 
+            
+            for ep in range(num_epochs):
+            
+                # get signal
+                sig = datastruct[subj][ch][(ep*fs*epoch_len):((ep*fs*epoch_len)+fs*epoch_len)]    
+                
+                # compute frequency spectrum
+                freq_mean, psd_mean = spectral.compute_spectrum(sig, fs, method='welch', avg_type='mean', nperseg=fs*2)
+                
+                # if dead channel
+                if sum(psd_mean) == 0: 
+                    
+                    peak_params = np.array([np.nan, np.nan, np.nan])
+                    background_params = np.array([np.nan, np.nan, np.nan])
+                    background_params_long = np.array([np.nan, np.nan, np.nan])
+                    
+                    psd_peak_ep.append(peak_params)
+                    backgr_params_ep.append(background_params)
+                    backgr_params_long_ep.append(background_params_long)
+                    
+                else:
+                    
+                    # Initialize FOOOF model
+                    fm = FOOOF(peak_width_limits=bw_lims, background_mode='knee', max_n_peaks=max_n_peaks)
+                    
+                    # fit model
+                    fm.fit(freq_mean, psd_mean, freq_range) 
+                    
+                    # Central frequency, Amplitude, Bandwidth
+                    peak_params = fm.peak_params_
+                    
+                    #offset, knee, slope
+                    background_params = fm.background_params_
+                        
+                    # if peaks are found
+                    if len(peak_params) > 0: 
+                        
+                        # find which peak has the biggest amplitude
+                        max_ampl_idx = np.argmax(peak_params[:,1])
+                        
+                        # find this peak hase the following characteristics:
+                        # 1) CF under 30 Hz
+                        # 2) Amp above .2
+                        # 3) Amp under 1.5 (to get rid of artifact)
+                        if ((peak_params[max_ampl_idx][0] < 30) &  \
+                            (peak_params[max_ampl_idx][1] >.2) &  \
+                            (peak_params[max_ampl_idx][1] < 1.5)):
+                            
+                            # write it to channel array
+                            psd_peak_ep.append(peak_params[max_ampl_idx])
+                          
+                        # otherwise write empty
+                        else:   
+                            peak_params = np.array([np.nan, np.nan, np.nan])
+                            psd_peak_ep.append(peak_params)
+                            
+                    # if no peaks are found, write empty
+                    elif len(peak_params) == 0:
+                        
+                        # write empty
+                        peak_params = np.array([np.nan, np.nan, np.nan])
+                        psd_peak_ep.append(peak_params)
+                    
+                    # add backgr parameters
+                    backgr_params_ep.append(background_params)
+                    
+                    
+                    # get the long frequency range aperiodic parameters 
+                    # Initialize FOOOF model
+                    fm = FOOOF(peak_width_limits=bw_lims, background_mode='knee', max_n_peaks=max_n_peaks)
+                    
+                    # fit model with long range
+                    fm.fit(freq_mean, psd_mean, freq_range_long) 
+                    
+                    #offset, knee, slope of long range
+                    background_params_long = fm.background_params_
+                    
+                    # add long background parameters
+                    backgr_params_long_ep.append(background_params_long)
+                   
+            # write to arrays on ch level       
+            psd_peak_chs.append(psd_peak_ep)
+            backgr_params_ch.append(backgr_params_ep)      
+            backgr_params_long_ch.append(backgr_params_long_ep)
+        
+        # write to arrays on subj level
+        psd_peaks.append(psd_peak_chs)
+        backgr_params.append(backgr_params_ch)
+        backgr_params_long.append(backgr_params_long_ch)
+        
+            
+    return psd_peaks, backgr_params, backgr_params_long

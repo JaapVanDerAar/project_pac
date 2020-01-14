@@ -607,3 +607,141 @@ def fooof_highest_peak_epoch(datastruct, epoch_len, fs, freq_range, bw_lims, max
         
             
     return psd_peaks, backgr_params, backgr_params_long
+
+
+#%% 
+    
+
+def fooof_highest_peak_epoch_4_12(datastruct, epoch_len, fs, freq_range, bw_lims, max_n_peaks, freq_range_long, features_df):
+    """
+    This function is build on FOOOF and neuroDSP. It fits a model to the power 
+    frequency spectrum, look for the biggest peak (in amplitude) and extracts 
+    the characteristics of the peak
+    
+    Inputs: 
+        datastruct and fs
+        
+        FOOOF parameters:
+        Frequency Range
+        Min and Max BW
+        Max # of Peaks  
+        Long frequency range
+        
+    Outputs:
+        Arrays of biggest peak characterics [CF, Ampl, BW]
+        Array of background parameters [Exp, knee, offset]
+        Array of background parameters long [Exp, knee, offset]
+    
+    """
+        
+    # initialize space in features_df     
+    # periodic component
+    features_df['CF'] = np.nan
+    features_df['Amp'] = np.nan
+    features_df['BW'] = np.nan
+    
+    # aperiodic component
+    features_df['offset'] = np.nan
+    features_df['knee'] = np.nan
+    features_df['exp'] = np.nan
+    
+    # aperiodic component long frequency range
+    features_df['offset_long'] = np.nan
+    features_df['knee_long'] = np.nan
+    features_df['exp_long'] = np.nan
+    
+    for ii in range(len(features_df)):
+  
+        # get data
+        subj = features_df['subj'][ii]
+        ch = features_df['ch'][ii]
+        ep = features_df['ep'][ii]
+        sig = datastruct[subj][ch][(ep*fs*epoch_len):((ep*fs*epoch_len)+fs*epoch_len)]
+                
+        # compute frequency spectrum
+        freq_mean, psd_mean = spectral.compute_spectrum(sig, fs, method='welch', avg_type='mean', nperseg=fs*2)
+        
+        # if dead channel
+        if sum(psd_mean) == 0: 
+            
+            # no oscillation was found
+            features_df['CF'][ii] = np.nan
+            features_df['Amp'][ii] = np.nan
+            features_df['BW'][ii] = np.nan
+            
+        else:
+            
+            # Initialize FOOOF model
+            fm = FOOOF(peak_width_limits=bw_lims, background_mode='knee', max_n_peaks=max_n_peaks)
+            
+            # fit model
+            fm.fit(freq_mean, psd_mean, freq_range) 
+            
+            # Central frequency, Amplitude, Bandwidth
+            peak_params = fm.peak_params_
+            
+            #offset, knee, slope
+            background_params = fm.background_params_
+                
+            # if peaks are found
+            if len(peak_params) > 0: 
+                
+                # find which peak has the biggest amplitude
+                max_ampl_idx = np.argmax(peak_params[:,1])
+                
+                # find this peak hase the following characteristics:
+                # 1) CF between 4 and 12 Hz
+                # 2) Amp above .2
+                # 3) Amp under 1.5 (to get rid of artifact)
+                if ((peak_params[max_ampl_idx][0] < 12) &  \
+                    (peak_params[max_ampl_idx][0] > 4) &  \
+                    (peak_params[max_ampl_idx][1] >.2) &  \
+                    (peak_params[max_ampl_idx][1] < 1.5)):
+                    
+                    # write oscillation parameters to dataframe
+                    features_df['CF'][ii] = peak_params[max_ampl_idx][0]
+                    features_df['Amp'][ii] = peak_params[max_ampl_idx][1]
+                    features_df['BW'][ii] = peak_params[max_ampl_idx][2]
+                                 
+                # otherwise write empty
+                else:   
+                    features_df['CF'][ii] = np.nan
+                    features_df['Amp'][ii] = np.nan
+                    features_df['BW'][ii] = np.nan
+                    
+            # if no peaks are found, write empty
+            elif len(peak_params) == 0:
+                
+                # write empty
+                features_df['CF'][ii] = np.nan
+                features_df['Amp'][ii] = np.nan
+                features_df['BW'][ii] = np.nan
+            
+            # add backgr parameters to dataframe
+            features_df['offset'][ii] = background_params[0]
+            features_df['knee'][ii] = background_params[1]
+            features_df['exp'][ii] = background_params[2]
+            
+            
+            # get the long frequency range aperiodic parameters 
+            # Initialize FOOOF model
+            fm = FOOOF(peak_width_limits=bw_lims, background_mode='knee', max_n_peaks=max_n_peaks)
+            
+            # fit model with long range
+            fm.fit(freq_mean, psd_mean, freq_range_long) 
+            
+            #offset, knee, slope of long range
+            background_params_long = fm.background_params_
+            
+            # add long background parameters to dataframe
+            features_df['offset'][ii] = background_params_long[0]
+            features_df['knee'][ii] = background_params_long[1]
+            features_df['exp'][ii] = background_params_long[2]
+            
+            print('this was ch', ii)
+
+            
+    return features_df
+    
+
+

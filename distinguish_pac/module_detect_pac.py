@@ -734,14 +734,13 @@ def fooof_highest_peak_epoch_4_12(datastruct, epoch_len, fs, freq_range, bw_lims
             background_params_long = fm.background_params_
             
             # add long background parameters to dataframe
-            features_df['offset'][ii] = background_params_long[0]
-            features_df['knee'][ii] = background_params_long[1]
-            features_df['exp'][ii] = background_params_long[2]
+            features_df['offset_long'][ii] = background_params_long[0]
+            features_df['knee_long'][ii] = background_params_long[1]
+            features_df['exp_long'][ii] = background_params_long[2]
             
             print('this was ch', ii)
 
             
     return features_df
     
-
 

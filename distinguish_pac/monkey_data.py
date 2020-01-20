@@ -195,7 +195,7 @@ features_df = pd.read_csv('features_df.csv', sep=',')
 #%% Get bycycle features ATTENUATION PROBlEMS IN SOME CHANNELS
 
 f_lowpass = 55
-N_seconds = timewindow / num_epochs - 2
+N_seconds = epoch_len_seconds - 2
 
 burst_kwargs = {'amplitude_fraction_threshold': 0.25,
                 'amplitude_consistency_threshold': .4,
@@ -222,7 +222,7 @@ for ii in range(len(features_df)):
         subj = features_df['subj'][ii]
         ch = features_df['ch'][ii]
         ep = features_df['ep'][ii]
-        data = datastruct[subj][ch][(ep*fs*epoch_len):((ep*fs*epoch_len)+fs*epoch_len)] 
+        data = datastruct[subj][ch][ep]
         
         signal = lowpass_filter(data, fs, f_lowpass, N_seconds=N_seconds, remove_edge_artifacts=False)
         

@@ -1045,3 +1045,313 @@ def fooof_highest_peak_epoch_4_12_monkey(datastruct, fs, freq_range, bw_lims, ma
             
     return features_df
     
+#%% 
+    
+def fooof_highest_peak_epoch_rat(datastruct, fs, freq_range, bw_lims, max_n_peaks, freq_range_long, features_df):
+    """
+    This function is build on FOOOF and neuroDSP. It fits a model to the power 
+    frequency spectrum, look for the biggest peak (in amplitude) and extracts 
+    the characteristics of the peak
+    
+    Inputs: 
+        datastruct and fs
+        
+        FOOOF parameters:
+        Frequency Range
+        Min and Max BW
+        Max # of Peaks  
+        Long frequency range
+        
+    Outputs:
+        Arrays of biggest peak characterics [CF, Ampl, BW]
+        Array of background parameters [Exp, knee, offset]
+        Array of background parameters long [Exp, knee, offset]
+    
+    """
+        
+    # initialize space in features_df     
+    # periodic component
+    features_df['CF'] = np.nan
+    features_df['Amp'] = np.nan
+    features_df['BW'] = np.nan
+    
+    # aperiodic component
+    features_df['offset'] = np.nan
+    features_df['knee'] = np.nan
+    features_df['exp'] = np.nan
+    
+    # aperiodic component long frequency range
+    features_df['offset_long'] = np.nan
+    features_df['knee_long'] = np.nan
+    features_df['exp_long'] = np.nan
+    
+    for ii in range(len(features_df)):
+  
+        # get data
+        subj = features_df['subj'][ii]
+        day = features_df['day'][ii]
+        ch = features_df['ch'][ii]
+        ep = features_df['ep'][ii]
+        
+        if datastruct[subj][day][ch] is not None: 
+            
+            sig = datastruct[subj][day][ch][ep]
+            
+            # compute frequency spectrum
+            freq_mean, psd_mean = spectral.compute_spectrum(sig, fs, method='welch', avg_type='mean', nperseg=fs*2)
+            
+            # if dead channel
+            if sum(psd_mean) == 0: 
+                
+                # no oscillation was found
+                features_df['CF'][ii] = np.nan
+                features_df['Amp'][ii] = np.nan
+                features_df['BW'][ii] = np.nan
+                
+            else:
+                
+                # Initialize FOOOF model
+                fm = FOOOF(peak_width_limits=bw_lims, background_mode='knee', max_n_peaks=max_n_peaks)
+                
+                # fit model
+                fm.fit(freq_mean, psd_mean, freq_range) 
+                
+                
+                # Central frequency, Amplitude, Bandwidth
+                peak_params = fm.peak_params_
+                
+                #offset, knee, slope
+                background_params = fm.background_params_
+                    
+                # if peaks are found
+                if len(peak_params) > 0: 
+                    
+                    # find which peak has the biggest amplitude
+                    max_ampl_idx = np.argmax(peak_params[:,1])
+                    
+                    # find this peak hase the following characteristics:
+                    # 1) CF between 4 and 12 Hz
+                    # 2) Amp above .2
+                    if ((peak_params[max_ampl_idx][0] < 15) &  \
+                        (peak_params[max_ampl_idx][0] > 4) &  \
+                        (peak_params[max_ampl_idx][1] >.15)):
+                        
+                        # write oscillation parameters to dataframe
+                        features_df['CF'][ii] = peak_params[max_ampl_idx][0]
+                        features_df['Amp'][ii] = peak_params[max_ampl_idx][1]
+                        features_df['BW'][ii] = peak_params[max_ampl_idx][2]
+                                     
+                    # otherwise write empty
+                    else:   
+                        features_df['CF'][ii] = np.nan
+                        features_df['Amp'][ii] = np.nan
+                        features_df['BW'][ii] = np.nan
+                        
+                # if no peaks are found, write empty
+                elif len(peak_params) == 0:
+                    
+                    # write empty
+                    features_df['CF'][ii] = np.nan
+                    features_df['Amp'][ii] = np.nan
+                    features_df['BW'][ii] = np.nan
+                
+                # add backgr parameters to dataframe
+                features_df['offset'][ii] = background_params[0]
+                features_df['knee'][ii] = background_params[1]
+                features_df['exp'][ii] = background_params[2]
+                
+                
+                # get the long frequency range apSeriodic parameters 
+                # Initialize FOOOF model
+                fm = FOOOF(peak_width_limits=bw_lims, background_mode='knee', max_n_peaks=max_n_peaks)
+                
+                # fit model with long range
+                fm.fit(freq_mean, psd_mean, freq_range_long) 
+                
+                #offset, knee, slope of long range
+                background_params_long = fm.background_params_
+                
+                # add long background parameters to dataframe
+                features_df['offset_long'][ii] = background_params_long[0]
+                features_df['knee_long'][ii] = background_params_long[1]
+                features_df['exp_long'][ii] = background_params_long[2]
+                
+                print('this was ch', ii)
+
+            
+    return features_df
+    
+
+#%%  Calculate PAC for monkey data - but phase providing band is variabel
+
+def cal_pac_values_varphase_rat(datastruct, amplitude_providing_band, fs, features_df):
+    """ iterates over all subjects and channels, calculates the PAC and results in dataframe
+    Same function as cal_pac_values but:
+        with a variable phase providing band
+        and for the full timeframe instead of 1 second
+        
+    Inputs:
+    -   Datastruct [subj * channels * data ] in numpy arrays
+    -   Amplitude frequency band
+    -   Sampling Frequency  
+    -   Features df
+    
+    """  
+ 
+    # create output columns
+    features_df['pac_presence']  = np.int64
+    features_df['pac_pvals'] = np.nan
+    features_df['pac_rhos']  = np.nan
+
+    for ii in range(len(features_df)):
+            
+        # for every channel that has peaks
+        if ~np.isnan(features_df['CF'][ii]):
+        
+            # define phase providing band
+            CF = features_df['CF'][ii]
+            BW = features_df['BW'][ii]
+            
+            phase_providing_band= [(CF - (BW/2)),  (CF + (BW/2))]
+            
+            # get data
+            subj = features_df['subj'][ii]
+            day = features_df['day'][ii]
+            ch = features_df['ch'][ii]
+            ep = features_df['ep'][ii]
+
+            data = datastruct[subj][day][ch][ep]
+        
+            #calculating phase of theta
+            phase_data = pacf.butter_bandpass_filter(data, phase_providing_band[0], phase_providing_band[1], round(float(fs)));
+            phase_data_hilbert = hilbert(phase_data);
+            phase_data_angle = np.angle(phase_data_hilbert);
+            
+            #calculating amplitude envelope of high gamma
+            amp_data = pacf.butter_bandpass_filter(data, amplitude_providing_band[0], amplitude_providing_band[1], round(float(fs)));
+            amp_data_hilbert = hilbert(amp_data);
+            amp_data_abs = abs(amp_data_hilbert);
+            
+            if ~np.isnan(phase_data_angle).any():
+                PAC_values = pacf.circle_corr(phase_data_angle, amp_data_abs)
+            
+                if PAC_values[1] <= 0.05:
+                    
+                    features_df['pac_presence'][ii] = 1
+                    
+                elif PAC_values[1] > 0.05: 
+        
+                    features_df['pac_presence'][ii] = 0
+                    
+                features_df['pac_pvals'][ii] = PAC_values[1]
+                features_df['pac_rhos'][ii] = PAC_values[0]
+                
+                print('this was ch', ii)
+    
+    return features_df
+
+#%%
+    
+def resampled_pac_varphase_rat(datastruct, amplitude_providing_band, fs, num_resamples, features_df):
+    """
+    This function calculated the 'true' PAC by resampling data 1000 times, 
+    calculating the rho values for every resample, whereafter the true p-value 
+    is calculated
+    Same function as resampled_pac but:
+        with a variable phase providing band
+        and for the full timeframe instead of 1 second
+    
+    Inputs:
+        Datastructure, phase and amplitude band, fs and number of resamples
+        
+    Outputs:
+        Resampled rho values
+        Resamples p values
+    
+    """
+    # create output columns
+    features_df['resamp_pac_presence']  = np.int64
+    features_df['resamp_pac_pvals'] = np.nan
+    features_df['resamp_pac_zvals']  = np.nan
+    
+    for ii in range(len(features_df)):
+            
+        # time it       
+        start = time.time()
+            
+       
+        # for every channel that has periodic peak
+        if ~np.isnan(features_df['pac_rhos'][ii]):
+        
+            # define phase providing band
+            CF = features_df['CF'][ii]
+            BW = features_df['BW'][ii]
+            
+            phase_providing_band= [(CF - (BW/2)),  (CF + (BW/2))]
+            
+            # get data
+            subj = features_df['subj'][ii]
+            day = features_df['day'][ii]
+            ch = features_df['ch'][ii]
+            ep = features_df['ep'][ii]
+    
+            data = datastruct[subj][day][ch][ep]
+    
+            
+            # create array of random numbers between 0 and total samples 
+            # which is as long as the number of resamples
+            roll_array = np.random.randint(0, len(data), size=num_resamples)
+            
+            resampled_pvals = np.full(num_resamples,np.nan)
+            resampled_rhos = np.full(num_resamples,np.nan)
+         
+            # for every resample
+            for jj in range(len(roll_array)):
+    
+                # roll the phase data for a random amount 
+                phase_data_roll = np.roll(data, roll_array[jj])
+                
+                #calculating phase of theta
+                phase_data = pacf.butter_bandpass_filter(phase_data_roll, phase_providing_band[0], phase_providing_band[1], round(float(fs)));
+                phase_data_hilbert = hilbert(phase_data);
+                phase_data_angle = np.angle(phase_data_hilbert);
+                
+                #calculating amplitude envelope of high gamma
+                amp_data = pacf.butter_bandpass_filter(data, amplitude_providing_band[0], amplitude_providing_band[1], round(float(fs)));
+                amp_data_hilbert = hilbert(amp_data);
+                amp_data_abs = abs(amp_data_hilbert);
+                
+                if ~np.isnan(phase_data_angle).any():
+                    
+                    # calculate PAC
+                    PAC_values = pacf.circle_corr(phase_data_angle, amp_data_abs)
+                
+                    resampled_pvals[jj] = PAC_values[1]
+                    resampled_rhos[jj] = PAC_values[0]
+            
+            # after rolling data and calculating 1000 rho and pac's 
+            # calculate the true values after resampling
+            true_z = (features_df['pac_rhos'][ii] - np.mean(resampled_rhos)) / np.std(resampled_rhos)
+            p_value = scipy.stats.norm.sf(abs(true_z))
+         
+            # write to dataframe
+            features_df['resamp_pac_pvals'][ii] = p_value
+            features_df['resamp_pac_zvals'][ii] = true_z
+            
+            # is it significant?
+            if true_z >= 0  and  p_value <= 0.05:
+    
+                features_df['resamp_pac_presence'][ii] = 1         
+                
+            else: 
+            
+                features_df['resamp_pac_presence'][ii] = 0 
+            
+       
+            print('this was ch', ii)
+        
+            end = time.time()
+            print(end - start)   
+        
+    return features_df
+

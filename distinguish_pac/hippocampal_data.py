@@ -153,7 +153,7 @@ features_df['ep'] = [ep for subj in range(len(datastruct))
 
 #%%
 
-freq_range = [4, 55] # for peak detection
+freq_range = [4, 48] # for peak detection
 bw_lims = [2, 6]
 max_n_peaks = 5
 freq_range_long = [2, 118] # to establish a more reliable slope

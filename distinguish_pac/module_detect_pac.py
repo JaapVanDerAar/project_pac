@@ -1085,7 +1085,7 @@ def fooof_highest_peak_epoch_rat(datastruct, fs, freq_range, bw_lims, max_n_peak
     features_df['knee_long'] = np.nan
     features_df['exp_long'] = np.nan
     
-    for ii in range(len(features_df)):
+    for ii in range(1700,1720):
   
         # get data
         subj = features_df['subj'][ii]
@@ -1116,6 +1116,7 @@ def fooof_highest_peak_epoch_rat(datastruct, fs, freq_range, bw_lims, max_n_peak
                 # fit model
                 fm.fit(freq_mean, psd_mean, freq_range) 
                 
+                fm.report()
                 
                 # Central frequency, Amplitude, Bandwidth
                 peak_params = fm.peak_params_

@@ -27,9 +27,9 @@ from bycycle.features import compute_features
 subjects = ['Bond', 'Dudley', 'Frank']
 
 # parameters
-epoch_len_seconds = 50 # in seconds
+epoch_len_seconds = 100 # in seconds
 num_tetrodes = 30
-num_epoch = 10
+num_epoch = 5
 fs = 1500
 
 
@@ -119,7 +119,7 @@ np.save('datastruct_rats', datastruct)
 
 os.chdir(r'C:\Users\jaapv\Desktop\master\VoytekLab') 
 datastruct = np.load('datastruct_rats.npy', allow_pickle=True)  
-features_df = 
+
 
 
 #%% Set up dataframe
@@ -220,11 +220,13 @@ burst_kwargs = {'amplitude_fraction_threshold': .3,
                 'amplitude_consistency_threshold': .4,
                 'period_consistency_threshold': .5,
                 'monotonicity_threshold': .8,
-                'N_cycles_min': 5}
+                'N_cycles_min': 10}
 
 features_df['volt_amp'] = np.nan
 features_df['rdsym']  = np.nan
 features_df['ptsym']  = np.nan
+
+burst_list = [None] * len(features_df)
 
 # for every channel with pac
 for ii in range(len(features_df)):
@@ -236,7 +238,11 @@ for ii in range(len(features_df)):
         CF = features_df['CF'][ii]
         BW = features_df['BW'][ii]
         
-        phase_providing_band= [(CF - (BW/2)),  (CF + (BW/2))]
+        # only for now, delete with new FOOOF
+        if BW < 5:
+            phase_providing_band= [(CF - (BW/2))-1,  (CF + (BW/2))+1]
+        else: 
+            phase_providing_band= [(CF - (BW/2)),  (CF + (BW/2))]
         
         # get data
         subj = features_df['subj'][ii]
@@ -254,9 +260,38 @@ for ii in range(len(features_df)):
         features_df['rdsym'][ii] = bycycle_df['time_rdsym'].median()
         features_df['ptsym'][ii] = bycycle_df['time_ptsym'].median()
         
+        # for finding longest streak
+        
+        # We have to ensure that the index is sorted
+        bycycle_df.sort_index(inplace=True)
+        # Resetting the index to create a column
+        bycycle_df.reset_index(inplace=True)
+        
+        # create dataframe that only accumulates the true bursts
+        streak_counter = bycycle_df.groupby((bycycle_df['is_burst']==False).cumsum()).agg({'index': ['count', 'min', 'max']})
+        
+        # Removing useless column level
+        streak_counter.columns = streak_counter.columns.droplevel()
+        
+        # get maximum streak
+        longest_streak = streak_counter[streak_counter['count']==streak_counter['count'].max()]
+        
+        # get starting and end point
+        start_streak = longest_streak.iloc[0]['min'] + 1 
+        end_streak = longest_streak.iloc[0]['max']
+        
+        biggest_burst_values = [bycycle_df['sample_last_trough'][start_streak],
+                                bycycle_df['sample_next_trough'][end_streak],
+                                list(bycycle_df['volt_peak'][start_streak:end_streak]),
+                                list(bycycle_df['time_rdsym'][start_streak:end_streak]),
+                                list(bycycle_df['time_ptsym'][start_streak:end_streak])]
+        
+        burst_list[ii] = biggest_burst_values 
+        
         print('this was ch', ii)
-        
-        
+      
+os.chdir(r'C:\Users\jaapv\Desktop\master\VoytekLab') 
+np.save('burst_list_rats', burst_list)
 features_df.to_csv('features_df_rats.csv', sep=',', index=False)
 
 

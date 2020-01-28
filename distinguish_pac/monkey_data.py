@@ -36,10 +36,10 @@ eyes_closed = [[1439.47, 2635.60], [720.12, 1325.19], [1592.66,2799.70], [1681.3
 fs = 1000
 
 # epoch length
-epoch_len_seconds = 20 # in seconds
+epoch_len_seconds = 100 # in seconds
 epoch_len = epoch_len_seconds * fs
 
-num_epoch = 30 # 30 epochs available in shortest recording
+num_epoch = 6 # 30 epochs available in shortest recording
 
 
 datastruct = [None] * len(subjects)
@@ -82,7 +82,7 @@ del(data)
 
 #%% Save
 os.chdir(r'C:\Users\jaapv\Desktop\master\VoytekLab') 
-np.save('datastruct', datastruct) 
+np.save('datastruct_monkey', datastruct) 
 
 #%% Load
 
@@ -113,9 +113,7 @@ size = len(datastruct) * len(datastruct[0]) * len(datastruct[0][0])
 # create dataframe with columns: subj & ch
 features_df = pd.DataFrame(index=range(0,size), columns=['subj','ch', 'ep'])
 
-num_epoch = 30
-
-# ETC. BUT FOR NOW TRY TO FIRST LOAD ALL THREE SUBJ. 
+num_epoch = 6
 
 # fill subj & ch
 features_df['subj'] = [subj for subj in range(len(datastruct)) 
@@ -143,11 +141,11 @@ features_df = detect_pac.fooof_highest_peak_epoch_4_12_monkey(datastruct, fs, fr
 
 #%% So now we have the peaks. Use those as input phase frequency for detecting PAC
     
-amplitude_providing_band = [80, 150]; #80-125 Hz band as original
+amplitude_providing_band = [65, 150]; #80-125 Hz band as original
 
 features_df = detect_pac.cal_pac_values_varphase_monkey(datastruct, amplitude_providing_band, fs, features_df)
 
-features_df.to_csv('features_df.csv', sep=',', index=False)
+features_df.to_csv('features_df_monkey.csv', sep=',', index=False)
 
 
 #%% How many channels have PAC when channels are NOT resampled?
@@ -194,14 +192,22 @@ features_df = pd.read_csv('features_df.csv', sep=',')
 
 #%% Get bycycle features ATTENUATION PROBlEMS IN SOME CHANNELS
 
-f_lowpass = 55
-N_seconds = epoch_len_seconds - 2
-
-burst_kwargs = {'amplitude_fraction_threshold': 0.25,
+f_lowpass = 45
+N_seconds = 2
+fs = 1000
+burst_kwargs = {'amplitude_fraction_threshold': .3,
                 'amplitude_consistency_threshold': .4,
-                'period_consistency_threshold': .45,
-                'monotonicity_threshold': .6,
-                'N_cycles_min': 3}
+                'period_consistency_threshold': .5,
+                'monotonicity_threshold': .8,
+                'N_cycles_min': 5}
+
+
+#burst_kwargs = {'amplitude_fraction_threshold': .3,
+#                'amplitude_consistency_threshold': .4,
+#                'period_consistency_threshold': .5,
+#                'monotonicity_threshold': .8,
+#                'N_cycles_min': 5}
+
 
 features_df['volt_amp'] = np.nan
 features_df['rdsym']  = np.nan
@@ -217,7 +223,11 @@ for ii in range(len(features_df)):
         CF = features_df['CF'][ii]
         BW = features_df['BW'][ii]
         
-        phase_providing_band= [(CF - (BW/2)),  (CF + (BW/2))]
+        # only for now, delete with new FOOOF
+        if BW < 5:
+            phase_providing_band= [(CF - (BW/2))-1,  (CF + (BW/2))+1]
+        else: 
+            phase_providing_band= [(CF - (BW/2)),  (CF + (BW/2))]
         
         subj = features_df['subj'][ii]
         ch = features_df['ch'][ii]
@@ -227,7 +237,15 @@ for ii in range(len(features_df)):
         signal = lowpass_filter(data, fs, f_lowpass, N_seconds=N_seconds, remove_edge_artifacts=False)
         
         bycycle_df = compute_features(signal, fs, phase_providing_band,  burst_detection_kwargs=burst_kwargs)
-        
+
+#        
+#        plot_burst_detect_params(signal, fs, bycycle_df,
+#                         burst_kwargs, tlims=(0, 5), figsize=(16, 3), plot_only_result=True)
+#
+#        plot_burst_detect_params(signal, fs, bycycle_df,
+#                         burst_kwargs, tlims=(0, 5), figsize=(16, 3))
+#        
+#            
         features_df['volt_amp'][ii] = bycycle_df['volt_peak'].median()
         features_df['rdsym'][ii] = bycycle_df['time_rdsym'].median()
         features_df['ptsym'][ii] = bycycle_df['time_ptsym'].median()

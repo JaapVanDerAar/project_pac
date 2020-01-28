@@ -996,9 +996,9 @@ def fooof_highest_peak_epoch_4_12_monkey(datastruct, fs, freq_range, bw_lims, ma
                 # find this peak hase the following characteristics:
                 # 1) CF between 4 and 12 Hz
                 # 2) Amp above .2
-                if ((peak_params[max_ampl_idx][0] < 30) &  \
+                if ((peak_params[max_ampl_idx][0] < 15) &  \
                     (peak_params[max_ampl_idx][0] > 4) &  \
-                    (peak_params[max_ampl_idx][1] >.2)):
+                    (peak_params[max_ampl_idx][1] >.15)):
                     
                     # write oscillation parameters to dataframe
                     features_df['CF'][ii] = peak_params[max_ampl_idx][0]
@@ -1085,7 +1085,7 @@ def fooof_highest_peak_epoch_rat(datastruct, fs, freq_range, bw_lims, max_n_peak
     features_df['knee_long'] = np.nan
     features_df['exp_long'] = np.nan
     
-    for ii in range(1700,1720):
+    for ii in range(len(features_df)):
   
         # get data
         subj = features_df['subj'][ii]
@@ -1115,8 +1115,7 @@ def fooof_highest_peak_epoch_rat(datastruct, fs, freq_range, bw_lims, max_n_peak
                 
                 # fit model
                 fm.fit(freq_mean, psd_mean, freq_range) 
-                
-                fm.report()
+
                 
                 # Central frequency, Amplitude, Bandwidth
                 peak_params = fm.peak_params_

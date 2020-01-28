@@ -30,9 +30,9 @@ features_df = pd.read_csv('features_df.csv', sep=',')
 fs = 1000
 # Fs = 1000
 # epoch length
-epoch_len_seconds = 20 # in seconds
+epoch_len_seconds = 100 # in seconds
 
-f_lowpass = 35
+f_lowpass = 45
 N_seconds = 2
 
 #burst_kwargs = {'amplitude_fraction_threshold': 0.25,
@@ -50,15 +50,15 @@ burst_kwargs = {'amplitude_fraction_threshold': .3,
 
 #%%
 
-        
-burst_dataframe = pd.DataFrame(index=range(0,len(features_df)), 
-                               columns=['start_sample','end_sample', 'volt_amp', 'rdsym','ptsym',])
+#        
+#burst_dataframe = pd.DataFrame(index=range(0,len(features_df)), 
+#                               columns=['start_sample','end_sample', 'volt_amp', 'rdsym','ptsym',])
 
-burst_list = [] 
+burst_list = [None] * len(features_df)
 
  
 # for every channel with pac
-for ii in range(len(features_df)):
+for ii in range(340,len(features_df)):
     
     # for every channel that has peaks
     if ~np.isnan(features_df['CF'][ii]):
@@ -67,7 +67,11 @@ for ii in range(len(features_df)):
         CF = features_df['CF'][ii]
         BW = features_df['BW'][ii]
         
-        phase_providing_band= [(CF - (BW/2)),  (CF + (BW/2))]
+        # only for now, delete with new FOOOF
+        if BW < 5:
+            phase_providing_band= [(CF - (BW/2))-1,  (CF + (BW/2))+1]
+        else: 
+            phase_providing_band= [(CF - (BW/2)),  (CF + (BW/2))]
                
         subj = features_df['subj'][ii]
         ch = features_df['ch'][ii]
@@ -77,11 +81,11 @@ for ii in range(len(features_df)):
         signal = lowpass_filter(data, fs, f_lowpass, N_seconds=N_seconds, remove_edge_artifacts=False)
         
         bycycle_df = compute_features(signal, fs, phase_providing_band, burst_detection_kwargs=burst_kwargs)
-
-#        plot_burst_detect_params(signal, Fs, bycycle_df,
+#
+#        plot_burst_detect_params(signal, fs, bycycle_df,
 #                         burst_kwargs, tlims=(0, 5), figsize=(16, 3), plot_only_result=True)
 #
-#        plot_burst_detect_params(signal, Fs, bycycle_df,
+#        plot_burst_detect_params(signal, fs, bycycle_df,
 #                         burst_kwargs, tlims=(0, 5), figsize=(16, 3))
         
         # find biggest length with no violations   
@@ -104,19 +108,19 @@ for ii in range(len(features_df)):
         start_streak = longest_streak.iloc[0]['min'] + 1 
         end_streak = longest_streak.iloc[0]['max']
         
-        bycycle_df[start_streak:end_streak]
-   
-        # for output dataframe
-        burst_dataframe['start_sample'][ii] = bycycle_df['sample_last_trough'][start_streak]
-        burst_dataframe['end_sample'][ii] = bycycle_df['sample_next_trough'][end_streak]
-        burst_dataframe['volt_amp'][ii] = bycycle_df['volt_peak'][start_streak:end_streak].mean()
-        burst_dataframe['rdsym'][ii] = bycycle_df['time_rdsym'][start_streak:end_streak].mean()
-        burst_dataframe['ptsym'][ii] = bycycle_df['time_ptsym'][start_streak:end_streak].mean()
+        biggest_burst_values = [bycycle_df['sample_last_trough'][start_streak],
+                                bycycle_df['sample_next_trough'][end_streak],
+                                list(bycycle_df['volt_peak'][start_streak:end_streak]),
+                                list(bycycle_df['time_rdsym'][start_streak:end_streak]),
+                                list(bycycle_df['time_ptsym'][start_streak:end_streak])]
+        
+        burst_list[ii] = biggest_burst_values 
+        
+        print('this was ch', ii)
 
 # bandpass_filter(signal, fs, phase_providing_band, N_seconds=N_seconds, plot_frequency_response=True)
 os.chdir(r'C:\Users\jaapv\Desktop\master\VoytekLab') 
-burst_dataframe.to_csv('burst_dataframe.csv', sep=',', index=False)
-
+np.save('burst_list_monkey', burst_list) 
 
 
 

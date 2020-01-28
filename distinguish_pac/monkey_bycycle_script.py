@@ -46,13 +46,16 @@ burst_kwargs = {'amplitude_fraction_threshold': .3,
                 'amplitude_consistency_threshold': .4,
                 'period_consistency_threshold': .5,
                 'monotonicity_threshold': .8,
-                'N_cycles_min': 5}
+                'N_cycles_min': 10}
 
 #%%
 
         
 burst_dataframe = pd.DataFrame(index=range(0,len(features_df)), 
                                columns=['start_sample','end_sample', 'volt_amp', 'rdsym','ptsym',])
+
+burst_list = [] 
+
  
 # for every channel with pac
 for ii in range(len(features_df)):
@@ -113,6 +116,83 @@ for ii in range(len(features_df)):
 # bandpass_filter(signal, fs, phase_providing_band, N_seconds=N_seconds, plot_frequency_response=True)
 os.chdir(r'C:\Users\jaapv\Desktop\master\VoytekLab') 
 burst_dataframe.to_csv('burst_dataframe.csv', sep=',', index=False)
+
+
+
+
+#%% 
+
+# for every channel with pac
+for ii in range(len(features_df)):
+    
+    # for every channel that has peaks
+    if ~np.isnan(features_df['CF'][ii]):
+    
+        # define phase providing band
+        CF = features_df['CF'][ii]
+        BW = features_df['BW'][ii]
+        
+        phase_providing_band= [(CF - (BW/2)),  (CF + (BW/2))]
+               
+        subj = features_df['subj'][ii]
+        ch = features_df['ch'][ii]
+        ep = features_df['ep'][ii]
+        data = datastruct[subj][ch][ep]
+        
+        signal = lowpass_filter(data, fs, f_lowpass, N_seconds=N_seconds, remove_edge_artifacts=False)
+        
+        bycycle_df = compute_features(signal, fs, phase_providing_band, burst_detection_kwargs=burst_kwargs)
+
+#        plot_burst_detect_params(signal, Fs, bycycle_df,
+#                         burst_kwargs, tlims=(0, 5), figsize=(16, 3), plot_only_result=True)
+#
+#        plot_burst_detect_params(signal, Fs, bycycle_df,
+#                         burst_kwargs, tlims=(0, 5), figsize=(16, 3))
+        
+        # find biggest length with no violations   
+
+        # We have to ensure that the index is sorted
+        bycycle_df.sort_index(inplace=True)
+        # Resetting the index to create a column
+        bycycle_df.reset_index(inplace=True)
+        
+        # create dataframe that only accumulates the true bursts
+        streak_counter = bycycle_df.groupby((bycycle_df['is_burst']==False).cumsum()).agg({'index': ['count', 'min', 'max']})
+        
+        # Removing useless column level
+        streak_counter.columns = streak_counter.columns.droplevel()
+        
+        # get maximum streak
+        longest_streak = streak_counter[streak_counter['count']==streak_counter['count'].max()]
+        
+        # get starting and end point
+        start_streak = longest_streak.iloc[0]['min'] + 1 
+        end_streak = longest_streak.iloc[0]['max']
+        
+        bycycle_df[start_streak:end_streak]
+   
+        # for output dataframe
+        burst_dataframe['start_sample'][ii] = bycycle_df['sample_last_trough'][start_streak]
+        burst_dataframe['end_sample'][ii] = bycycle_df['sample_next_trough'][end_streak]
+        burst_dataframe['volt_amp'][ii] = bycycle_df['volt_peak'][start_streak:end_streak].mean()
+        burst_dataframe['rdsym'][ii] = bycycle_df['time_rdsym'][start_streak:end_streak].mean()
+        burst_dataframe['ptsym'][ii] = bycycle_df['time_ptsym'][start_streak:end_streak].mean()
+
+        
+        plt.hist(plt.hist(bycycle_df['time_ptsym'][start_streak:end_streak]))
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 #%%

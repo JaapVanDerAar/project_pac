@@ -27,9 +27,9 @@ from bycycle.features import compute_features
 subjects = ['Bond', 'Dudley', 'Frank']
 
 # parameters
-epoch_len_seconds = 100 # in seconds
+epoch_len_seconds = 50 # in seconds
 num_tetrodes = 30
-num_epoch = 5
+num_epoch = 10
 fs = 1500
 
 
@@ -212,7 +212,7 @@ print('in ', perc_resamp * 100, 'channels is PAC (resampled)')
 # pac_idx = list(np.where(features_df['resamp_pac_presence'] == 1))
 
 
-f_lowpass = 55
+f_lowpass = 45
 N_seconds = 2
 fs = 1500
 

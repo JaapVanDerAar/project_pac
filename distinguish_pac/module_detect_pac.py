@@ -860,7 +860,7 @@ def fooof_highest_peak_epoch_4_12(datastruct, epoch_len, fs, freq_range, bw_lims
                 # 1) CF between 4 and 12 Hz
                 # 2) Amp above .2
                 # 3) Amp under 1.5 (to get rid of artifact)
-                if ((peak_params[max_ampl_idx][0] < 12) &  \
+                if ((peak_params[max_ampl_idx][0] < 15) &  \
                     (peak_params[max_ampl_idx][0] > 4) &  \
                     (peak_params[max_ampl_idx][1] >.2) &  \
                     (peak_params[max_ampl_idx][1] < 1.5)):

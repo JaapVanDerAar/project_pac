@@ -20,8 +20,8 @@ def load_data_human(dat_name, subjects, fs, timewindow):
     """ 
 
     
-    datastruct = [None] * len(subjects) 
-    elec_locs = [None] * len(subjects)
+    datastruct = [np.nan] * len(subjects) 
+    elec_locs = [np.nan] * len(subjects)
         
     for subj in range(len(subjects)):
         
@@ -67,7 +67,7 @@ def load_data_monkey(eyes_closed, subjects, fs, epoch_len, num_epoch, channels):
     -   number of channels
     """ 
     
-    datastruct = [None] * len(subjects)
+    datastruct = [np.nan] * len(subjects)
     
     for subj in range(len(subjects)): 
            
@@ -77,7 +77,7 @@ def load_data_monkey(eyes_closed, subjects, fs, epoch_len, num_epoch, channels):
         os.chdir(filename)
     
         ch_counter = 0 
-        datastruct_ch = [None] * channels
+        datastruct_ch = [np.nan] * channels
     
         for file_idx in glob.glob("ECoG_ch*.mat"):
             
@@ -121,7 +121,7 @@ def load_data_rat(subjects, fs, epoch_len_seconds, num_epoch, num_tetrodes):
     epoch_len = int(epoch_len_seconds * fs)
     
     # create datastructure
-    datastruct = [None] * len(subjects)
+    datastruct = [np.nan] * len(subjects)
     
     # for every subject
     for subj in range(len(subjects)): 
@@ -132,7 +132,7 @@ def load_data_rat(subjects, fs, epoch_len_seconds, num_epoch, num_tetrodes):
         os.chdir(task_dir)
         
         # day specific datastructure
-        datastruct_day = [None] * len(glob.glob("*task*.mat"))
+        datastruct_day = [np.nan] * len(glob.glob("*task*.mat"))
         
         for day_counter in range(len(glob.glob("*task*.mat"))):
             
@@ -158,7 +158,7 @@ def load_data_rat(subjects, fs, epoch_len_seconds, num_epoch, num_tetrodes):
         
                 
                 # channel datastruct with length of number of channels    
-                datastruct_ch = [None] * num_tetrodes
+                datastruct_ch = [np.nan] * num_tetrodes
             
                 # for each recording for that day
                 for file_idx in glob.glob(('*eeg' + day)+'-1-*.mat'):
@@ -190,3 +190,45 @@ def load_data_rat(subjects, fs, epoch_len_seconds, num_epoch, num_tetrodes):
         datastruct[subj] = datastruct_day
         
     return datastruct
+
+
+#%% 
+          
+def get_signal(data_dict, features_df, key, ii):
+    
+    if key == 'human':
+        
+        subj = features_df[key]['subj'][ii]
+        ch = features_df[key]['ch'][ii]
+        
+        signal = data_dict[key][subj][ch]     
+        fs = 1000
+        
+    if key == 'monkey':
+        
+        subj = features_df[key]['subj'][ii]
+        ch = features_df[key]['ch'][ii]
+        ep = features_df[key]['ep'][ii]
+        
+        signal = data_dict[key][subj][ch][ep]
+        fs = 1000
+        
+    if key == 'rat': 
+        
+        subj = features_df[key]['subj'][ii]
+        day = features_df[key]['day'][ii]
+        ch = features_df[key]['ch'][ii]
+        ep = features_df[key]['ep'][ii]
+        
+        if np.isnan(data_dict[key][subj][day][ch]).any(): 
+            
+            signal = np.nan
+            
+        else: 
+            
+            signal = data_dict[key][subj][day][ch][ep]
+            
+        fs = 1500
+    
+    return signal, fs
+

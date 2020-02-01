@@ -22,22 +22,22 @@ features_df = pd.read_csv('features_df_rats.csv', sep=',')
 #%% 
 
 # original is [4, 55], [2, 8], 4
-freq_range = [4, 48] # for peak detection
-bw_lims = [2, 6]
-max_n_peaks = 5
-# Add absolute threshold 'min_peak_height
+freq_range = [4, 100] # for peak detection
+bw_lims = [2, 5]
+max_n_peaks = 6
+# Add absolute threshold 'min_peak_height (for low gamma = 0.15)
 # freq_range_long = [4, 118] # to establish a more reliable slope
 fs = 1500
 
 
 
-for ii in range(0,10):
+for ii in range(0,100):
   
     # get data
     subj = features_df['subj'][ii]
-    day = features_df['day'][ii]
     ch = features_df['ch'][ii]
     ep = features_df['ep'][ii]
+    day = features_df['day'][ii]
 
     sig = datastruct[subj][day][ch][ep]
     
@@ -61,3 +61,8 @@ for ii in range(0,10):
         fm.fit(freq_mean, psd_mean, freq_range) 
 
         fm.report()
+        
+        
+#%% 
+len(features_df)
+# 1200 900 750

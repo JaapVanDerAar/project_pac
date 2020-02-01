@@ -5,7 +5,7 @@ import numpy as np
 import scipy.io
 from fooof import FOOOF
 from neurodsp import spectral
-
+from module_load_data import get_signal
 import time
 
 
@@ -1354,4 +1354,367 @@ def resampled_pac_varphase_rat(datastruct, amplitude_providing_band, fs, num_res
             print(end - start)   
         
     return features_df
+
+#%%
+    
+def find_fooof_peaks(data_dict, freq_range, bw_lims, max_n_peaks, features_df, key):
+    """
+    This function is build on FOOOF and neuroDSP. It fits a model to the power 
+    frequency spectrum, look for the biggest peak (in amplitude) and extracts 
+    the characteristics of the peak
+    
+    Inputs: 
+        datastruct and fs
+        
+        FOOOF parameters:
+        Frequency Range
+        Min and Max BW
+        Max # of Peaks  
+        
+    Outputs:
+        Arrays of biggest peak characterics [CF, Ampl, BW]
+        Array of background parameters [Exp, knee, offset]
+    
+    """
+
+    
+    # initialize space in features_df     
+    # periodic component
+    features_df[key]['CF'] = np.nan
+    features_df[key]['Amp'] = np.nan
+    features_df[key]['BW'] = np.nan
+    
+    # aperiodic component
+    features_df[key]['offset'] = np.nan
+    features_df[key]['knee'] = np.nan
+    features_df[key]['exp'] = np.nan
+    
+    for ii in range(len(features_df[key])):
+      
+        
+        signal, fs = get_signal(data_dict, features_df, key, ii)
+        
+    
+        if ~np.isnan(signal).any(): 
+            
+            
+            # compute frequency spectrum
+            freq_mean, psd_mean = spectral.compute_spectrum(signal, fs, method='welch', avg_type='mean', nperseg=fs*2)
+            
+            # if dead channel
+            if sum(psd_mean) == 0: 
+                
+                # no oscillation was found
+                features_df[key]['CF'][ii] = np.nan
+                features_df[key]['Amp'][ii] = np.nan
+                features_df[key]['BW'][ii] = np.nan
+                
+            else:
+                
+                # Initialize FOOOF model
+                fm = FOOOF(peak_width_limits=bw_lims, background_mode='knee', max_n_peaks=max_n_peaks)
+                
+                # fit model
+                fm.fit(freq_mean, psd_mean, freq_range) 
+    
+                
+                # Central frequency, Amplitude, Bandwidth
+                peak_params = fm.peak_params_
+                
+                #offset, knee, slope
+                background_params = fm.background_params_
+                    
+                # if peaks are found
+                if len(peak_params) > 0: 
+                    
+                    # find which peak has the biggest amplitude
+                    max_ampl_idx = np.argmax(peak_params[:,1])
+                    
+                    # find this peak hase the following characteristics:
+                    # 1) CF between 4 and 12 Hz
+                    # 2) Amp above .2
+                    if ((peak_params[max_ampl_idx][0] < 24) &  \
+                        (peak_params[max_ampl_idx][0] > 4) &  \
+                        (peak_params[max_ampl_idx][1] >.15)):
+                        
+                        # write oscillation parameters to dataframe
+                        features_df[key]['CF'][ii] = peak_params[max_ampl_idx][0]
+                        features_df[key]['Amp'][ii] = peak_params[max_ampl_idx][1]
+                        features_df[key]['BW'][ii] = peak_params[max_ampl_idx][2]
+                                     
+                    # otherwise write empty
+                    else:   
+                        features_df[key]['CF'][ii] = np.nan
+                        features_df[key]['Amp'][ii] = np.nan
+                        features_df[key]['BW'][ii] = np.nan
+                        
+                # if no peaks are found, write empty
+                elif len(peak_params) == 0:
+                    
+                    # write empty
+                    features_df[key]['CF'][ii] = np.nan
+                    features_df[key]['Amp'][ii] = np.nan
+                    features_df[key]['BW'][ii] = np.nan
+                
+                # add backgr parameters to dataframe
+                features_df[key]['offset'][ii] = background_params[0]
+                features_df[key]['knee'][ii] = background_params[1]
+                features_df[key]['exp'][ii] = background_params[2]
+                
+                
+                print('this was ch', ii)
+    
+    return features_df
+
+#%%
+    
+def find_fooof_peaks_lowgamma(data_dict, freq_range, bw_lims, max_n_peaks, features_df, key):
+    """
+    This function is build on FOOOF and neuroDSP. It fits a model to the power 
+    frequency spectrum, look for the biggest peak (in amplitude) and extracts 
+    the characteristics of the peak
+    
+    Inputs: 
+        datastruct and fs
+        
+        FOOOF parameters:
+        Frequency Range
+        Min and Max BW
+        Max # of Peaks  
+        
+    Outputs:
+        Arrays of biggest peak characterics [CF, Ampl, BW]
+        Array of background parameters [Exp, knee, offset]
+    
+    """
+
+    
+    # initialize space in features_df     
+    # low gamma component
+    features_df[key]['LG_CF'] = np.nan
+    features_df[key]['LG_Amp'] = np.nan
+    features_df[key]['LG_BW'] = np.nan
+    
+    
+    for ii in range(len(features_df[key])):
+        
+        signal, fs = get_signal(data_dict, features_df, key, ii)
+        
+    
+        if ~np.isnan(signal).any(): 
+            
+            
+            # compute frequency spectrum
+            freq_mean, psd_mean = spectral.compute_spectrum(signal, fs, method='welch', avg_type='mean', nperseg=fs*2)
+            
+            # if dead channel
+            if sum(psd_mean) == 0: 
+                
+                features_df[key]['LG_CF'][ii] = np.nan
+                features_df[key]['LG_Amp'][ii] = np.nan
+                features_df[key]['LG_BW'][ii] = np.nan
+                
+            else:
+                
+                # Initialize FOOOF model
+                fm = FOOOF(peak_width_limits=bw_lims, background_mode='knee', max_n_peaks=max_n_peaks)
+                
+                # fit model
+                fm.fit(freq_mean, psd_mean, freq_range)    
+                
+                # Central frequency, Amplitude, Bandwidth
+                peak_params = fm.peak_params_                
+                
+                # for monkey dont take the 48-52 hz due to line noise
+                if key == 'monkey': 
+                    
+                    peak_params = np.squeeze([
+                            peak_params[ii] for ii in range(len(peak_params)) 
+                            if (((peak_params[ii][0] > 30) & (peak_params[ii][0] < 48)) or 
+                            ((peak_params[ii][0] > 52) & (peak_params[ii][0] < 58)))    
+                            ])
+                    
+                    
+                else: 
+                    
+                    peak_params = np.squeeze([
+                            peak_params[ii] for ii in range(len(peak_params)) 
+                            if ((peak_params[ii][0] > 30) & (peak_params[ii][0] < 58))
+                            ])
+                    
+     
+                # if peaks are found
+                if len(peak_params) > 0: 
+                    
+                    if len(np.shape(peak_params)) > 1:
+                        
+                        # find which peak has the biggest amplitude
+                        max_ampl_idx = np.argmax(peak_params[:,1])
+                        
+                        # find this peak hase the following characteristics:
+                        # Amp above .15
+                        if peak_params[max_ampl_idx][1] >.15:
+                            
+                            # write oscillation parameters to dataframe
+                            features_df[key]['LG_CF'][ii] = peak_params[max_ampl_idx][0]
+                            features_df[key]['LG_Amp'][ii] = peak_params[max_ampl_idx][1]
+                            features_df[key]['LG_BW'][ii] = peak_params[max_ampl_idx][2]
+                                         
+                        # otherwise write empty
+                        else:   
+                            features_df[key]['LG_CF'][ii] = np.nan
+                            features_df[key]['LG_Amp'][ii] = np.nan
+                            features_df[key]['LG_BW'][ii] = np.nan
+                        
+                    elif len(np.shape(peak_params)) == 1:
+                        
+                        # find this peak hase the following characteristics:
+                        # Amp above .15
+                        if peak_params[1] >.15:
+                            
+                            # write oscillation parameters to dataframe
+                            features_df[key]['LG_CF'][ii] = peak_params[0]
+                            features_df[key]['LG_Amp'][ii] = peak_params[1]
+                            features_df[key]['LG_BW'][ii] = peak_params[2]
+                                         
+                        # otherwise write empty
+                        else:   
+                            features_df[key]['LG_CF'][ii] = np.nan
+                            features_df[key]['LG_Amp'][ii] = np.nan
+                            features_df[key]['LG_BW'][ii] = np.nan
+                            
+                # if no peaks are found, write empty
+                elif len(peak_params) == 0:
+                    
+                    # write empty
+                    features_df[key]['LG_CF'][ii] = np.nan
+                    features_df[key]['LG_Amp'][ii] = np.nan
+                    features_df[key]['LG_BW'][ii] = np.nan
+
+            print('this was ch', ii)
+    
+    return features_df
+#%% Calculate PAC for all three datasets
+    
+def calculate_pac(data_dict, amplitude_providing_band, features_df, key):
+    """ iterates over all subjects and channels, calculates the PAC and results in dataframe
+    Same function as cal_pac_values but:
+        with a variable phase providing band
+        and for the full timeframe instead of 1 second
+        
+    Inputs:
+    -   Datastruct [subj * channels * data ] in numpy arrays
+    -   Amplitude frequency band
+    -   Sampling Frequency  
+    -   Features df
+    
+    """  
+ 
+    # create output columns
+    features_df[key]['pac_presence']  = np.int64
+    features_df[key]['pac_pvals'] = np.nan
+    features_df[key]['pac_rhos']  = np.nan
+
+    for ii in range(len(features_df[key])):
+            
+        # for every channel that has peaks
+        if ~np.isnan(features_df[key]['CF'][ii]):
+        
+            # define phase providing band
+            CF = features_df[key]['CF'][ii]
+            BW = features_df[key]['BW'][ii]
+            
+            phase_providing_band= [(CF - (BW/2)),  (CF + (BW/2))]
+            
+            # get singal and fs
+            signal, fs = get_signal(data_dict, features_df, key, ii)
+        
+            #calculating phase of theta
+            phase_data = pacf.butter_bandpass_filter(signal, phase_providing_band[0], phase_providing_band[1], fs);
+            phase_data_hilbert = hilbert(phase_data);
+            phase_data_angle = np.angle(phase_data_hilbert);
+            
+            #calculating amplitude envelope of high gamma
+            amp_data = pacf.butter_bandpass_filter(signal, amplitude_providing_band[0], amplitude_providing_band[1], fs);
+            amp_data_hilbert = hilbert(amp_data);
+            amp_data_abs = abs(amp_data_hilbert);
+            
+            if ~np.isnan(phase_data_angle).any():
+                
+                PAC_values = pacf.circle_corr(phase_data_angle, amp_data_abs)
+            
+                if PAC_values[1] <= 0.05:
+                    
+                    features_df[key]['pac_presence'][ii] = 1
+                    
+                elif PAC_values[1] > 0.05: 
+        
+                    features_df[key]['pac_presence'][ii] = 0
+                    
+                features_df[key]['pac_pvals'][ii] = PAC_values[1]
+                features_df[key]['pac_rhos'][ii] = PAC_values[0]
+                
+                print('this was ch', ii)
+    
+    return features_df
+
+#%% Calculate PAC low gamma for all three datasets
+    
+def calculate_pac_lowgamma(data_dict, features_df, key):
+
+ 
+    # create output columns
+    features_df[key]['LG_pac_presence']  = np.int64
+    features_df[key]['LG_pac_pvals'] = np.nan
+    features_df[key]['LG_pac_rhos']  = np.nan
+
+    for ii in range(len(features_df[key])):
+            
+        # for every channel that has peaks
+        if (~np.isnan(features_df[key]['CF'][ii]) &
+            ~np.isnan(features_df[key]['LG_CF'][ii])):
+        
+            # define phase providing band
+            CF = features_df[key]['CF'][ii]
+            BW = features_df[key]['BW'][ii]
+            
+            phase_providing_band= [(CF - (BW/2)),  (CF + (BW/2))]
+            
+            # define amplitude providing band
+            CF_lowgamma = features_df[key]['LG_CF'][ii]
+            BW_lowgamma = features_df[key]['LG_BW'][ii]
+            
+            amplitude_providing_band= [(CF_lowgamma - (BW_lowgamma/2)),  (CF_lowgamma + (BW_lowgamma/2))]
+            
+            # get singal and fs
+            signal, fs = get_signal(data_dict, features_df, key, ii)
+        
+            #calculating phase of theta
+            phase_data = pacf.butter_bandpass_filter(signal, phase_providing_band[0], phase_providing_band[1], fs);
+            phase_data_hilbert = hilbert(phase_data);
+            phase_data_angle = np.angle(phase_data_hilbert);
+            
+            #calculating amplitude envelope of high gamma
+            amp_data = pacf.butter_bandpass_filter(signal, amplitude_providing_band[0], amplitude_providing_band[1], fs);
+            amp_data_hilbert = hilbert(amp_data);
+            amp_data_abs = abs(amp_data_hilbert);
+            
+            if ~np.isnan(phase_data_angle).any():
+                
+                PAC_values = pacf.circle_corr(phase_data_angle, amp_data_abs)
+            
+                if PAC_values[1] <= 0.05:
+                    
+                    features_df[key]['LG_pac_presence'][ii] = 1
+                    
+                elif PAC_values[1] > 0.05: 
+        
+                    features_df[key]['LG_pac_presence'][ii] = 0
+                    
+                features_df[key]['LG_pac_pvals'][ii] = PAC_values[1]
+                features_df[key]['LG_pac_rhos'][ii] = PAC_values[0]
+                
+                print('this was ch', ii)
+    
+    return features_df    
 

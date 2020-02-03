@@ -19,6 +19,8 @@ import module_load_data as load_data
 import module_pac_functions as pacf
 import module_detect_pac as detect_pac
 import module_pac_plots as pac_plt
+from module_load_data import get_signal
+
 
 from bycycle.filt import lowpass_filter
 from bycycle.features import compute_features
@@ -206,3 +208,94 @@ for key in data_dict:
 #len(features_df['rat'][features_df['rat']['LG_pac_presence']==1]) / (len(features_df['rat'][features_df['rat']['LG_pac_presence']==0]) + len(features_df['rat'][features_df['rat']['LG_pac_presence']==1])) 
 #len(features_df['human'][features_df['human']['LG_pac_presence']==1]) / (len(features_df['human'][features_df['human']['LG_pac_presence']==0]) + len(features_df['human'][features_df['human']['LG_pac_presence']==1])) 
 #len(features_df['monkey'][features_df['monkey']['LG_pac_presence']==1]) / (len(features_df['monkey'][features_df['monkey']['LG_pac_presence']==0]) + len(features_df['monkey'][features_df['monkey']['LG_pac_presence']==1])) 
+
+#%% Bycycle 
+
+# ByCycle parameters
+f_lowpass = 45
+N_seconds = 2
+fs = 1000
+burst_kwargs = {'amplitude_fraction_threshold': .3,
+                'amplitude_consistency_threshold': .4,
+                'period_consistency_threshold': .5,
+                'monotonicity_threshold': .8,
+                'N_cycles_min': 10}
+
+# create empty dictionairy for burst list output 
+burst_list_dict = {}
+
+for key in data_dict:
+    
+    features_df[key]['volt_amp'] = np.nan
+    features_df[key]['rdsym']  = np.nan
+    features_df[key]['ptsym']  = np.nan
+    
+    burst_list = [np.nan] * len(features_df[key])
+    
+    # for every channel with pac
+    for ii in range(len(features_df[key])):
+        
+        # for every channel that has peaks
+        if ~np.isnan(features_df[key]['CF'][ii]):
+        
+            # define phase providing band
+            CF = features_df[key]['CF'][ii]
+            BW = features_df[key]['BW'][ii]
+            
+           # phase_providing_band= [(CF - (BW/2))-1,  (CF + (BW/2))+1]
+            
+            # only for now, delete with new FOOOF
+            if BW < 5:
+                phase_providing_band= [(CF - (BW/2))-1,  (CF + (BW/2))+1]
+            else: 
+                phase_providing_band= [(CF - (BW/2)),  (CF + (BW/2))]
+            
+            
+            signal, fs = get_signal(data_dict, features_df, key, ii)    
+            
+            lp_signal = lowpass_filter(signal, fs, f_lowpass, N_seconds=N_seconds, remove_edge_artifacts=False)
+            
+            bycycle_df = compute_features(lp_signal, fs, phase_providing_band,  burst_detection_kwargs=burst_kwargs)
+            
+            features_df[key]['volt_amp'][ii] = bycycle_df['volt_peak'].median()
+            features_df[key]['rdsym'][ii] = bycycle_df['time_rdsym'].median()
+            features_df[key]['ptsym'][ii] = bycycle_df['time_ptsym'].median()
+            
+            # for finding longest streak
+            
+            # We have to ensure that the index is sorted
+            bycycle_df.sort_index(inplace=True)
+            # Resetting the index to create a column
+            bycycle_df.reset_index(inplace=True)
+            
+            # create dataframe that only accumulates the true bursts
+            streak_counter = bycycle_df.groupby((bycycle_df['is_burst']==False).cumsum()).agg({'index': ['count', 'min', 'max']})
+            
+            # Removing useless column level
+            streak_counter.columns = streak_counter.columns.droplevel()
+            
+            # get maximum streak
+            longest_streak = streak_counter[streak_counter['count']==streak_counter['count'].max()]
+            
+            # get starting and end point
+            start_streak = longest_streak.iloc[0]['min'] + 1 
+            end_streak = longest_streak.iloc[0]['max']
+            
+            biggest_burst_values = [bycycle_df['sample_last_trough'][start_streak],
+                                    bycycle_df['sample_next_trough'][end_streak],
+                                    list(bycycle_df['volt_peak'][start_streak:end_streak]),
+                                    list(bycycle_df['time_rdsym'][start_streak:end_streak]),
+                                    list(bycycle_df['time_ptsym'][start_streak:end_streak])]
+            
+            burst_list[ii] = biggest_burst_values 
+            
+            print('this was ch', ii)
+            
+    burst_list_dict[key] = burst_list
+            
+        
+#%% Save features_df and burst_list_dict
+# save data_dict (or load)
+os.chdir(r'C:\Users\jaapv\Desktop\master\VoytekLab')
+np.save('features_df', features_df) 
+np.save('burst_list_dict', burst_list_dict)

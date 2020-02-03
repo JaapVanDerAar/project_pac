@@ -2,11 +2,6 @@
 
 import os
 import numpy as np
-import scipy.io as sio
-import pandas as pd
-
-
-import h5py
 import pandas as pd
 import matplotlib.pyplot as plt
 #%% Change directory to import necessary modules
@@ -16,11 +11,8 @@ os.chdir(r'C:\Users\jaapv\Desktop\master\VoytekLab\Code\distinguish_pac')
 #%% import self-defined modules
 
 import module_load_data as load_data
-import module_pac_functions as pacf
 import module_detect_pac as detect_pac
-import module_pac_plots as pac_plt
 from module_load_data import get_signal
-
 
 from bycycle.filt import lowpass_filter
 from bycycle.features import compute_features
@@ -153,15 +145,15 @@ del(features_df_human)
 del(features_df_monkey)
 del(features_df_rat)
 
-# save data_dict (or load)
-os.chdir(r'C:\Users\jaapv\Desktop\master\VoytekLab')
-np.save('data_dict', data_dict)
-np.save('features_df', features_df) 
-
-#%% Load data
-os.chdir(r'C:\Users\jaapv\Desktop\master\VoytekLab')
-data_dict = np.load('data_dict.npy', allow_pickle=True).item()
-features_df = np.load('features_df.npy', allow_pickle=True).item()
+## save data_dict (or load)
+#os.chdir(r'C:\Users\jaapv\Desktop\master\VoytekLab')
+#np.save('data_dict', data_dict)
+#np.save('features_df', features_df) 
+#
+##%% Load data
+#os.chdir(r'C:\Users\jaapv\Desktop\master\VoytekLab')
+#data_dict = np.load('data_dict.npy', allow_pickle=True).item()
+#features_df = np.load('features_df.npy', allow_pickle=True).item()
 
 
 #%% Detect oscillatory peaks in PSD using FOOOF
@@ -297,5 +289,5 @@ for key in data_dict:
 #%% Save features_df and burst_list_dict
 # save data_dict (or load)
 os.chdir(r'C:\Users\jaapv\Desktop\master\VoytekLab')
-np.save('features_df', features_df) 
-np.save('burst_list_dict', burst_list_dict)
+np.save('features_df_14hz', features_df) 
+np.save('burst_list_dict_14hz', burst_list_dict)

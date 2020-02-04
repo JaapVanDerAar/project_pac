@@ -271,8 +271,15 @@ for key in data_dict:
             
             # get starting and end point
             start_streak = longest_streak.iloc[0]['min'] + 1 
-            end_streak = longest_streak.iloc[0]['max']
             
+            if longest_streak.iloc[0]['max'] > 0:
+
+                end_streak = longest_streak.iloc[0]['max'] - 1
+                
+            else: 
+                
+                end_streak = longest_streak.iloc[0]['max'] 
+                           
             biggest_burst_values = [bycycle_df['sample_last_trough'][start_streak],
                                     bycycle_df['sample_next_trough'][end_streak],
                                     list(bycycle_df['volt_peak'][start_streak:end_streak]),
@@ -286,8 +293,8 @@ for key in data_dict:
     burst_list_dict[key] = burst_list
             
         
-#%% Save features_df and burst_list_dict
+##%% Save features_df and burst_list_dict
 # save data_dict (or load)
 os.chdir(r'C:\Users\jaapv\Desktop\master\VoytekLab')
-np.save('features_df_14hz', features_df) 
-np.save('burst_list_dict_14hz', burst_list_dict)
+np.save('features_df', features_df) 
+np.save('burst_list_dict', burst_list_dict)

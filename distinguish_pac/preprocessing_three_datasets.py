@@ -206,7 +206,6 @@ for key in data_dict:
 # ByCycle parameters
 f_lowpass = 45
 N_seconds = 2
-fs = 1000
 burst_kwargs = {'amplitude_fraction_threshold': .3,
                 'amplitude_consistency_threshold': .4,
                 'period_consistency_threshold': .5,

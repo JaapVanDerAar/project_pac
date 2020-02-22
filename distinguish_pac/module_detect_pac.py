@@ -1433,7 +1433,7 @@ def find_fooof_peaks(data_dict, freq_range, bw_lims, max_n_peaks, features_df, k
                     # find this peak hase the following characteristics:
                     # 1) CF between 4 and 12 Hz
                     # 2) Amp above .2
-                    if ((peak_params[max_ampl_idx][0] < 14) &  \
+                    if ((peak_params[max_ampl_idx][0] < 24) &  \
                         (peak_params[max_ampl_idx][0] > 4) &  \
                         (peak_params[max_ampl_idx][1] >.15)):
                         

@@ -19,8 +19,8 @@ from bycycle.features import compute_features
 
 #%% Load human data
 
-# metadata
-subjects = ['al','ca','cc','de','fp','gc','gf','gw',
+# metadata - deleted gw because artifactual data
+subjects = ['al','ca','cc','de','fp','gc','gf',
           'h0','hh','jc','jm','jp','mv','rh','rr',
           'ug','wc','wm','zt']
 os.chdir(r'C:\Users\jaapv\Desktop\master\VoytekLab')

@@ -151,9 +151,9 @@ del(features_df_rat)
 #np.save('features_df', features_df) 
 #
 ##%% Load data
-#os.chdir(r'C:\Users\jaapv\Desktop\master\VoytekLab')
-#data_dict = np.load('data_dict.npy', allow_pickle=True).item()
-#features_df = np.load('features_df.npy', allow_pickle=True).item()
+os.chdir(r'C:\Users\jaapv\Desktop\master\VoytekLab')
+data_dict = np.load('data_dict.npy', allow_pickle=True).item()
+features_df = np.load('features_df.npy', allow_pickle=True).item()
 
 
 #%% Detect oscillatory peaks in PSD using FOOOF

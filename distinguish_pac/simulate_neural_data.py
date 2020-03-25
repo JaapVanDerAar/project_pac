@@ -188,7 +188,7 @@ for aa in range(0,n_it):
         # create array with sample in which each cycle starts
         cycle_array = np.linspace(0,signal_length, osc_freq_rand * n_seconds, endpoint=False)
         
-        # calculate number of bursts per cycle - 1000 bursts per second
+        # calculate number of bursts per cycle - 1000 bursts per second - actually is 3200
         total_bursts_sec = 1000 * n_seconds
         bursts_per_cycle = int(total_bursts_sec / osc_freq_rand)
         
@@ -521,6 +521,6 @@ for aa in range(0,n_it):
     if aa % 100==0:
         
         # 2_0_0 = exp [-2, -1.5], asine/sine, uniform/distribution STDs
-        simulation_features.to_csv('simulation_features_2_0_0_uniform.csv', sep=',', index=False)
+        simulation_features.to_csv('simulation_features_2_0_1_uniform.csv', sep=',', index=False)
         print('We have ' + str(aa) + ' iterations')
 

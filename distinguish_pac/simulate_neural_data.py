@@ -95,7 +95,7 @@ burst_kwargs = {'amplitude_fraction_threshold': .3,
                 'N_cycles_min': 10}
 
 # number of iterations
-n_it = 1500
+n_it = 5
 
 # set up dataframe
 simulation_features = pd.DataFrame(index=range(0,n_it))
@@ -329,7 +329,7 @@ burst_kwargs = {'amplitude_fraction_threshold': .3,
                 'N_cycles_min': 10}
 
 # number of iterations
-n_it = 1500
+n_it = 4500
 
 # set up dataframe
 simulation_features = pd.DataFrame(index=range(0,n_it))
@@ -352,7 +352,7 @@ simulation_features['pac_presence'] = np.int64
   
 
 
-for aa in range(0,n_it):   
+for aa in range(300,n_it):   
     
 
     # time it       

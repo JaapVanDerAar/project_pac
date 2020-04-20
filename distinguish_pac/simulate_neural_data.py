@@ -260,7 +260,7 @@ for aa in range(0,n_it):
         simulation_features['it'][aa] = aa
         simulation_features['freq'][aa] = osc_freq_rand
         simulation_features['noise_exp'][aa] = exp_rand
-        simulation_features['firing_std'][aa] = sd
+        simulation_features['firing_std'][aa] = 1
         simulation_features['offset'][aa] = fm.background_params_[0]
         simulation_features['exp'][aa] = fm.background_params_[1]
         simulation_features['volt_amp'][aa] = bycycle_df['volt_peak'].median()
@@ -496,7 +496,7 @@ for aa in range(300,n_it):
         simulation_features['it'][aa] = aa
         simulation_features['freq'][aa] = osc_freq_rand
         simulation_features['noise_exp'][aa] = exp_rand
-        simulation_features['firing_std'][aa] = sd
+        simulation_features['firing_std'][aa] = 1
         simulation_features['offset'][aa] = fm.background_params_[0]
         simulation_features['exp'][aa] = fm.background_params_[1]
         simulation_features['volt_amp'][aa] = bycycle_df['volt_peak'].median()

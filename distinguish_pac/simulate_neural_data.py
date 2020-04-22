@@ -329,7 +329,7 @@ burst_kwargs = {'amplitude_fraction_threshold': .3,
                 'N_cycles_min': 10}
 
 # number of iterations
-n_it = 4500
+n_it = 1000
 
 # set up dataframe
 simulation_features = pd.DataFrame(index=range(0,n_it))
@@ -352,7 +352,7 @@ simulation_features['pac_presence'] = np.int64
   
 
 
-for aa in range(300,n_it):   
+for aa in range(0,n_it):   
     
 
     # time it       
@@ -521,6 +521,6 @@ for aa in range(300,n_it):
     if aa % 100==0:
         
         # 2_0_0 = exp [-2, -1.5], asine/sine, uniform/distribution STDs
-        simulation_features.to_csv('simulation_features_2_0_1_uniform.csv', sep=',', index=False)
+        simulation_features.to_csv('simulation_features_2_0_3_uniform.csv', sep=',', index=False)
         print('We have ' + str(aa) + ' iterations')
 
